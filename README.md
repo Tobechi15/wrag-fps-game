@@ -60,10 +60,10 @@ the "what is this and how do I run it" doc.
 wrag fps/
 ├── client/          # The actual game - loads at deploy time, one match at a time
 │   └── src/         # Scene/player/weapon/bots-on-screen/HUD/mobile touch controls
-├── server/          # Node.js authoritative backend (one process, two servers)
+├── server/          # Node.js authoritative backend (one process, one port)
 │   └── src/
-│       ├── index.js     # WebSocket game server (:8080) - starts the API server too
-│       ├── api/          # Express HTTP API (:8081) - auth, dashboard, wallet
+│       ├── index.js     # WebSocket game server - shares one http.Server/port with the API below
+│       ├── api/          # Express HTTP API - auth, dashboard, wallet, admin
 │       ├── auth/         # Signup/login/session/play-token handling
 │       ├── match/        # Match state machine, mode rules, extraction, hit registration
 │       ├── bots/         # Bot AI (patrol/attack state machine)
@@ -90,8 +90,8 @@ docker exec -i wrag-fps-postgres psql -U postgres -d wrag_fps < server/src/db/sc
 ```
 (`schema.sql` is idempotent — safe to re-run any time the schema changes.)
 
-**2 — Server** (WebSocket game server on :8080 + Express API on :8081,
-same process):
+**2 — Server** (WebSocket game server + Express API, one process, one port
+- `:8080` by default, or `PORT` from the environment):
 ```
 cd server
 cp .env.example .env   # first time only - fill in SESSION_SECRET, adjust tuning if you want

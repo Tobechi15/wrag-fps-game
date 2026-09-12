@@ -8,10 +8,17 @@ import { router as dashboardRouter } from './dashboard.js';
 import { router as walletRouter } from './wallet.js';
 import { router as adminRouter } from './admin.js';
 
-const PORT = 8081;
 const PgSession = connectPgSimple(session);
 
-export function startApiServer() {
+// Returns the configured Express app WITHOUT calling .listen() on it - see
+// index.js, which mounts this onto the SAME http.Server the WebSocket game
+// server attaches to and calls .listen() there, once, for both. (Used to
+// be its own independent app.listen() on a second port - fine for local
+// dev, but a hosting platform that only exposes ONE port per service - see
+// Render's "No open ports detected on 0.0.0.0" error - never sees a
+// service with a real WS+API split, since only one of the two ports it
+// binds could ever be externally reachable anyway.)
+export function createApiApp() {
   const app = express();
 
   // Almost every hosting platform terminates https at a proxy/load
@@ -61,7 +68,5 @@ export function startApiServer() {
   app.use('/api/wallet', walletRouter);
   app.use('/api/admin', adminRouter);
 
-  app.listen(PORT, '127.0.0.1', () => {
-    console.log(`API server listening on http://127.0.0.1:${PORT}`);
-  });
+  return app;
 }

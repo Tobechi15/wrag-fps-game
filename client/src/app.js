@@ -51,29 +51,38 @@ if (characterVariant) wsParams.set('character', characterVariant);
 const wsQuery = wsParams.toString();
 
 // The game server's own address, not a hardcoded '127.0.0.1' - this page
-// is reachable from other devices (a phone, via a forwarded port/LAN IP),
-// and '127.0.0.1' in THIS URL would mean "connect back to yourself" on
-// whatever device the browser is actually running on, not this dev
-// machine. Two ways to reach it, in order:
-//   1. `?wsHost=` on this page's own URL, if present - an explicit full
-//      host[:port] for the WS server, e.g. VS Code's port-forwarding gives
-//      port 5173 and port 8080 completely DIFFERENT forwarded hostnames
-//      (not "same host, different port"), so there's no way to derive
-//      8080's forwarded address from this page's own URL alone. Copy the
-//      forwarded address for port 8080 from VS Code's Ports panel and pass
-//      it here, e.g. ...5173.../?wsHost=abc123-8080.usw2.devtunnels.ms.
-//   2. Otherwise, this page's own hostname on port 8080 - correct for
+// is reachable from other devices (a phone, via a forwarded port/LAN IP, or
+// a real Vercel deployment entirely separate from wherever the backend
+// actually runs), and '127.0.0.1' in THIS URL would mean "connect back to
+// yourself" on whatever device/host the browser is actually running on,
+// never this dev machine. Three ways to reach it, in order:
+//   1. VITE_GAME_SERVER_URL, baked in at BUILD time (see .env.example) - a
+//      full ws://or wss://host[:port] URL, for a real deployment where the
+//      client (Vercel) and the backend (e.g. Render) are on two entirely
+//      different domains with no shared-host relationship at all. Set this
+//      as a Vercel project env var; unset for local dev.
+//   2. `?wsHost=` on this page's own URL, if present - an explicit full
+//      host[:port] for the WS server, no protocol (see wsProtocol below) -
+//      e.g. VS Code's port-forwarding gives port 5173 and port 8080
+//      completely DIFFERENT forwarded hostnames (not "same host, different
+//      port"), so there's no way to derive 8080's forwarded address from
+//      this page's own URL alone. Copy the forwarded address for port 8080
+//      from VS Code's Ports panel and pass it here, e.g.
+//      ...5173.../?wsHost=abc123-8080.usw2.devtunnels.ms.
+//   3. Otherwise, this page's own hostname on port 8080 - correct for
 //      desktop (127.0.0.1) and for the common "same LAN, typed the IP
 //      directly" case, where both ports genuinely do share one host.
-// Either way, the PROTOCOL matches this page's own (wss:// for an https://
-// page, ws:// for http://) - a forwarding tool serving this page over
-// https (VS Code's tunnels always do) would have the browser block a plain
-// ws:// connection outright as mixed content, even if the WS server itself
-// has no TLS of its own (the tunnel terminates TLS on the way in).
+// For (2) and (3), the PROTOCOL matches this page's own (wss:// for an
+// https:// page, ws:// for http://) - a forwarding tool serving this page
+// over https (VS Code's tunnels always do) would have the browser block a
+// plain ws:// connection outright as mixed content, even if the WS server
+// itself has no TLS of its own (the tunnel terminates TLS on the way in).
+// (1) is a full URL already, so it carries its own explicit protocol.
+const gameServerUrlOverride = import.meta.env.VITE_GAME_SERVER_URL;
 const wsHostOverride = urlParams.get('wsHost');
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const gameServerHost = wsHostOverride ?? `${window.location.hostname}:8080`;
-const gameServerUrl = wsQuery ? `${wsProtocol}//${gameServerHost}?${wsQuery}` : `${wsProtocol}//${gameServerHost}`;
+const gameServerBase = gameServerUrlOverride ?? `${wsProtocol}//${wsHostOverride ?? `${window.location.hostname}:8080`}`;
+const gameServerUrl = wsQuery ? `${gameServerBase}?${wsQuery}` : gameServerBase;
 
 // One connection for the whole tab, opened as soon as the page loads so the
 // server can put us in its matchmaking queue immediately - see network.js

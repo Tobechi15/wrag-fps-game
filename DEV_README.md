@@ -10,10 +10,21 @@ things are built the way they are.
 Three dev processes talk to each other:
 
 - **`server`** (one Node process, `server/src/index.js`) runs BOTH the
-  authoritative game WebSocket server (`:8080`) and an Express HTTP API
-  (`:8081`, `server/src/api/server.js`, started via `startApiServer()`)
-  for auth/dashboard/wallet. Deliberately one process/command so running
-  the backend never needs more than one terminal.
+  authoritative game WebSocket server and an Express HTTP API
+  (`server/src/api/server.js`'s `createApiApp()`, for auth/dashboard/
+  wallet/admin) on ONE shared `http.Server`/ONE port (`process.env.PORT`,
+  falling back to `8080` for local dev) — `ws`'s `WebSocketServer` attaches
+  to that same server via its `server` option (hooking only the 'upgrade'
+  event) rather than opening an independent listener. Used to be two
+  separate listeners on two separate ports (`:8080` WS, `:8081` API) —
+  fine for local dev, but broken on any host that only exposes one port
+  per service (see the "No open ports detected on 0.0.0.0" class of error:
+  a service with two independent listeners never has both reachable
+  externally, since the platform's edge only ever forwards the one port it
+  detected). Bound to `0.0.0.0`, not `127.0.0.1` — a hosting platform's
+  port scanner connects from outside this container's loopback interface,
+  so a service bound only to `127.0.0.1` is invisible to it even while
+  genuinely running.
 - **`site`** (`:5175`) is the marketing page, login/signup, dashboard, and
   account page — talks to the API over `/api/*`, proxied same-origin by
   `site/vite.config.js` so session cookies work locally without

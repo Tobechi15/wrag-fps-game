@@ -9,13 +9,14 @@
 // with no error, just env vars quietly not taking effect. This entry-point
 // import removes that fragility entirely.
 import 'dotenv/config';
+import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { randomUUID } from 'crypto';
 import { createQueue } from './lobby/queue.js';
 import { createPrivateRoomRegistry } from './lobby/privateRooms.js';
 import { createMatch } from './match/match.js';
 import { createBotEntries, MATCH_TARGET_SIZE } from './bots/bot.js';
-import { startApiServer } from './api/server.js';
+import { createApiApp } from './api/server.js';
 import { consumePlayToken } from './auth/playTokens.js';
 import { MODE_CONFIGS } from './match/modes.js';
 import {
@@ -24,14 +25,27 @@ import {
 import { generateCallsign } from './util/callsign.js';
 import { registerLiveStatsProvider } from './liveStats.js';
 
-const PORT = 8080;
+// A hosting platform (Render, Railway, etc.) assigns this and expects the
+// app to bind exactly that port - never hardcode it. Falls back to 8080
+// for local dev, where nothing sets PORT.
+const PORT = Number(process.env.PORT ?? 8080);
 const SURVIVAL_BOT_COUNT = MATCH_TARGET_SIZE - 1; // 1 real player + this many bots, same populated feel as a filled Versus/Coop match
 
-// The REST API (accounts/login/dashboard) is a separate Express app on its
-// own port (8081), started from this same process for convenience (one
-// `npm run dev` covers both) - but kept as an independent module since it's
-// a genuinely different concern from the WebSocket game server below.
-startApiServer();
+// The REST API (accounts/login/dashboard, api/server.js's Express app) and
+// the WebSocket game server below share ONE http.Server/ONE port now -
+// used to be two independent listeners (Express's own app.listen() on
+// :8081, this file's WebSocketServer on :8080), which worked fine for
+// local dev but can't work on a host that only exposes a single port per
+// service (see the "No open ports detected on 0.0.0.0" class of error -
+// a service with two separate listeners never has both reachable
+// externally, since the platform's edge only ever forwards the one port
+// it detected/was told about). `ws`'s WebSocketServer, given a `server`
+// instead of its own host/port, hooks the shared server's 'upgrade' event
+// only - Express's own request handling (the 'request' event) is
+// completely unaffected, so both coexist on one listener with no route
+// conflict.
+const apiApp = createApiApp();
+const httpServer = createServer(apiApp);
 
 // In-memory only: resets on restart, matching the prototype scope. No
 // database yet (that's Part B / accounts).
@@ -56,12 +70,10 @@ function launchMatch(participants, modeName, matchOptions) {
   return matchId;
 }
 
-// Bind explicitly to 127.0.0.1 (IPv4 loopback) rather than the default,
-// which can end up IPv6-only and unreachable from a browser's "localhost" -
-// same issue we hit with the Vite dev server in Phase 1 step 1.
-const wss = new WebSocketServer({ host: '127.0.0.1', port: PORT });
-
-console.log(`WebSocket server listening on ws://127.0.0.1:${PORT}`);
+// Attaches to httpServer's 'upgrade' event rather than opening its own
+// socket (see the module comment above on why this and the API app now
+// share one server/port).
+const wss = new WebSocketServer({ server: httpServer });
 
 // Versus (the original/default mode) and Coop each get their own public
 // queue instance - same factory, parameterized (see queue.js) - so a
@@ -268,4 +280,17 @@ wss.on('connection', (socket, request) => {
       leaveAllPreMatchQueues(id, socket);
     }
   });
+});
+
+// Started last, after every handler above is already registered - nothing
+// arriving the instant this starts accepting connections can hit a
+// not-yet-wired-up path. Bound to 0.0.0.0 (every interface), not
+// 127.0.0.1 - a hosting platform's port scanner/edge proxy connects from
+// OUTSIDE this container's loopback, so a service bound only to 127.0.0.1
+// is invisible to it even while genuinely running (see the "No open ports
+// detected on 0.0.0.0... Detected open ports on localhost" error this
+// exact mistake produces). Harmless locally - 0.0.0.0 still accepts
+// connections via 127.0.0.1 same as before.
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server (WebSocket + API) listening on 0.0.0.0:${PORT}`);
 });
