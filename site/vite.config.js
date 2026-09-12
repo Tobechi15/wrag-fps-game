@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 // different port than client/ (5173) so both can run side by side.
 export default defineConfig({
   server: {
-    host: '127.0.0.1',
+    host: 'https://wrag-fps.vercel.app/',
     port: 5175,
     // Forwards /api/* to the Express server so the browser sees it as
     // same-origin (127.0.0.1:5175/api/...) instead of a cross-origin
@@ -14,7 +14,7 @@ export default defineConfig({
     // allow over https - proxying sidesteps that entirely for local dev.
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8081',
+        target: 'https://wrag-fps-game.onrender.com',
         changeOrigin: true,
       },
     },
