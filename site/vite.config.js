@@ -1,9 +1,35 @@
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Bind to 127.0.0.1 explicitly - see client/vite.config.js for why (the
 // default can end up IPv6-only and unreachable from a browser). Runs on a
 // different port than client/ (5173) so both can run side by side.
 export default defineConfig({
+  // This is a multi-page app (six separate top-level HTML files, not one
+  // SPA) - `vite dev` serves any file in the project root directly
+  // regardless of this config, which is why every page worked fine in
+  // local dev without it. `vite build`, however, only ever bundles
+  // index.html by default - every other page (login/signup/dashboard/
+  // account/admin) was SILENTLY MISSING from dist/ entirely, which is
+  // exactly why they 404 once deployed as a static site (a static host
+  // only ever serves what's actually in the build output - there's no
+  // dev-server fallback to paper over it there). Every page needs its own
+  // named entry here so the build actually includes it.
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        login: resolve(__dirname, 'login.html'),
+        signup: resolve(__dirname, 'signup.html'),
+        dashboard: resolve(__dirname, 'dashboard.html'),
+        account: resolve(__dirname, 'account.html'),
+        admin: resolve(__dirname, 'admin.html'),
+      },
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: 5175,

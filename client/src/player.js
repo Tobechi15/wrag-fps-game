@@ -182,7 +182,7 @@ export function createPlayerControls(camera, domElement, overlayElement) {
       // release yet) doesn't register as a drift command. Added on top of
       // WASD, not exclusive with it.
       const VIRTUAL_MOVE_DEADZONE = 0.15;
-      if (Math.abs(virtualMoveX) > VIRTUAL_MOVE_DEADZONE || Math.abs(virtualMoveY) > VIRTUAL_MOVE_DEADZONE) {
+      if (Math.abs(virtualMoveX) < VIRTUAL_MOVE_DEADZONE || Math.abs(virtualMoveY) > VIRTUAL_MOVE_DEADZONE) {
         moveDirection.x += forward.x * virtualMoveY + right.x * virtualMoveX;
         moveDirection.z += forward.z * virtualMoveY + right.z * virtualMoveX;
       }
