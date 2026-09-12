@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node src/index.js"
+    "dev": "node src/index.js",
+    "build": "echo \"No build step - plain Node.js, nothing to compile/bundle\"",
+    "start": "node src/index.js"
   },
   "dependencies": {
     "ws": "^8.18.0",
