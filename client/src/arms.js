@@ -99,70 +99,80 @@ function buildArmsMaterial() {
 // centers on the grip point, and attaches to the weapon (see weapon.js's
 // attachToWeapon) - no independent sway handling needed, since being a
 // child of the weapon's own group means it inherits weapon.js's setSway()
-// output automatically, every frame, for free.
+// output automatically, every frame, for free. Returns a promise that
+// resolves once the model is actually attached (or the load fails) - see
+// gameScreen.js's matchAssetsReady, which waits on this before revealing
+// the match to the player.
 export function createArms(weapon) {
   const material = buildArmsMaterial();
 
-  fbxLoader.load(
-    ARMS_URL,
-    (model) => {
-      model.traverse((child) => {
-        if (child.isMesh) child.material = material;
-      });
+  return new Promise((resolve) => {
+    fbxLoader.load(
+      ARMS_URL,
+      (model) => {
+        model.traverse((child) => {
+          if (child.isMesh) child.material = material;
+        });
 
-      // Swapped per request: the variable called "right" is bound to the
-      // model's OWN L-named bones and vice versa, so RIGHT_*_ROTATION now
-      // poses the model's L-named arm and LEFT_*_ROTATION poses the
-      // model's R-named arm - the full arm identity is swapped, not just
-      // which rotation constant number gets typed where.
-      const rightShoulder = model.getObjectByName('upper_armL');
-      const rightElbow = model.getObjectByName('forearmL');
-      const leftShoulder = model.getObjectByName('upper_armR');
-      const leftElbow = model.getObjectByName('forearmR');
-      const rightHand = model.getObjectByName('handL');
-      const leftHand = model.getObjectByName('handR');
+        // Swapped per request: the variable called "right" is bound to
+        // the model's OWN L-named bones and vice versa, so
+        // RIGHT_*_ROTATION now poses the model's L-named arm and
+        // LEFT_*_ROTATION poses the model's R-named arm - the full arm
+        // identity is swapped, not just which rotation constant number
+        // gets typed where.
+        const rightShoulder = model.getObjectByName('upper_armL');
+        const rightElbow = model.getObjectByName('forearmL');
+        const leftShoulder = model.getObjectByName('upper_armR');
+        const leftElbow = model.getObjectByName('forearmR');
+        const rightHand = model.getObjectByName('handL');
+        const leftHand = model.getObjectByName('handR');
 
-      if (rightShoulder && rightElbow && leftShoulder && leftElbow && rightHand && leftHand) {
-        rightShoulder.rotation.set(RIGHT_SHOULDER_ROTATION.x, RIGHT_SHOULDER_ROTATION.y, RIGHT_SHOULDER_ROTATION.z);
-        rightElbow.rotation.set(RIGHT_ELBOW_ROTATION.x, RIGHT_ELBOW_ROTATION.y, RIGHT_ELBOW_ROTATION.z);
-        leftShoulder.rotation.set(LEFT_SHOULDER_ROTATION.x, LEFT_SHOULDER_ROTATION.y, LEFT_SHOULDER_ROTATION.z);
-        leftElbow.rotation.set(LEFT_ELBOW_ROTATION.x, LEFT_ELBOW_ROTATION.y, LEFT_ELBOW_ROTATION.z);
-        model.updateMatrixWorld(true);
+        if (rightShoulder && rightElbow && leftShoulder && leftElbow && rightHand && leftHand) {
+          rightShoulder.rotation.set(RIGHT_SHOULDER_ROTATION.x, RIGHT_SHOULDER_ROTATION.y, RIGHT_SHOULDER_ROTATION.z);
+          rightElbow.rotation.set(RIGHT_ELBOW_ROTATION.x, RIGHT_ELBOW_ROTATION.y, RIGHT_ELBOW_ROTATION.z);
+          leftShoulder.rotation.set(LEFT_SHOULDER_ROTATION.x, LEFT_SHOULDER_ROTATION.y, LEFT_SHOULDER_ROTATION.z);
+          leftElbow.rotation.set(LEFT_ELBOW_ROTATION.x, LEFT_ELBOW_ROTATION.y, LEFT_ELBOW_ROTATION.z);
+          model.updateMatrixWorld(true);
 
-        // Scale derived from the ACTUAL posed shoulder-to-hand distance
-        // (native units), not a generic bounding-box measurement - a
-        // skinned mesh's Box3 doesn't reflect bone-driven deformation, so
-        // the approach weapon.js uses for the gun doesn't apply here.
-        const shoulderPos = new THREE.Vector3();
-        const handPos = new THREE.Vector3();
-        rightShoulder.getWorldPosition(shoulderPos);
-        rightHand.getWorldPosition(handPos);
-        const nativeReach = shoulderPos.distanceTo(handPos);
-        const scale = nativeReach > 0 ? TARGET_REACH_METERS / nativeReach : 1;
-        model.scale.setScalar(scale);
-        model.updateMatrixWorld(true);
+          // Scale derived from the ACTUAL posed shoulder-to-hand distance
+          // (native units), not a generic bounding-box measurement - a
+          // skinned mesh's Box3 doesn't reflect bone-driven deformation,
+          // so the approach weapon.js uses for the gun doesn't apply here.
+          const shoulderPos = new THREE.Vector3();
+          const handPos = new THREE.Vector3();
+          rightShoulder.getWorldPosition(shoulderPos);
+          rightHand.getWorldPosition(handPos);
+          const nativeReach = shoulderPos.distanceTo(handPos);
+          const scale = nativeReach > 0 ? TARGET_REACH_METERS / nativeReach : 1;
+          model.scale.setScalar(scale);
+          model.updateMatrixWorld(true);
 
-        // Center on the grip point - the midpoint between the two posed
-        // hands - the same "measure after scaling, then subtract" order
-        // weapon.js uses, just computed from bone positions instead of a
-        // geometry bounding box.
-        const rightHandScaled = new THREE.Vector3();
-        const leftHandScaled = new THREE.Vector3();
-        rightHand.getWorldPosition(rightHandScaled);
-        leftHand.getWorldPosition(leftHandScaled);
-        const gripMidpoint = rightHandScaled.add(leftHandScaled).multiplyScalar(0.5);
-        model.position.sub(gripMidpoint);
-      } else {
-        console.error('Arms model is missing an expected bone - falling back to an unposed/uncentered model.');
-      }
+          // Center on the grip point - the midpoint between the two posed
+          // hands - the same "measure after scaling, then subtract" order
+          // weapon.js uses, just computed from bone positions instead of
+          // a geometry bounding box.
+          const rightHandScaled = new THREE.Vector3();
+          const leftHandScaled = new THREE.Vector3();
+          rightHand.getWorldPosition(rightHandScaled);
+          leftHand.getWorldPosition(leftHandScaled);
+          const gripMidpoint = rightHandScaled.add(leftHandScaled).multiplyScalar(0.5);
+          model.position.sub(gripMidpoint);
+        } else {
+          console.error('Arms model is missing an expected bone - falling back to an unposed/uncentered model.');
+        }
 
-      const armsGroup = new THREE.Group();
-      armsGroup.add(model);
-      armsGroup.position.set(ARMS_OFFSET.x, ARMS_OFFSET.y, ARMS_OFFSET.z);
-      armsGroup.rotation.y = Math.PI;
-      weapon.attachToWeapon(armsGroup);
-    },
-    undefined,
-    (err) => console.error('Failed to load arms model:', err),
-  );
+        const armsGroup = new THREE.Group();
+        armsGroup.add(model);
+        armsGroup.position.set(ARMS_OFFSET.x, ARMS_OFFSET.y, ARMS_OFFSET.z);
+        armsGroup.rotation.y = Math.PI;
+        weapon.attachToWeapon(armsGroup);
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.error('Failed to load arms model:', err);
+        resolve(); // a failed load shouldn't block the match from starting
+      },
+    );
+  });
 }

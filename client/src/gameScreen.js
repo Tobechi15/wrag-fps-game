@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createScene } from './scene.js';
 import { createPlayerControls } from './player.js';
-import { createWeapon } from './weapon.js';
+import { createWeapon, preloadRemoteWeaponModel } from './weapon.js';
+import { preloadCharacterModels } from './characterModel.js';
 import { createTargets, flashTargetHit } from './targets.js';
 import { createShootingSystem } from './shooting.js';
 import { createPotTracker } from './pot.js';
@@ -71,6 +72,13 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // it explicitly so every new match starts with "click to play" visible.
   overlay.classList.remove('hidden');
   const playerControls = createPlayerControls(camera, canvas, overlay);
+
+  // Shown from the moment a match starts until every loader-based asset
+  // below has actually resolved (see matchAssetsReady) - also a persistent
+  // element reused across matches, so it's explicitly shown again here
+  // rather than assumed hidden from a previous match's own completion.
+  const matchLoadingScreenEl = gameScreenElement.querySelector('#match-loading-screen');
+  matchLoadingScreenEl.hidden = false;
 
   // Pointer Lock (what the "click to play" overlay normally waits for) is
   // unreliable/unsupported on mobile browsers, and touch look-drag (see
@@ -185,16 +193,40 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // to be included when the renderer traverses the scene.
   scene.add(camera);
   const weapon = createWeapon(camera, gunVariant ?? undefined);
-  createArms(weapon); // parents itself under the weapon's own group - see arms.js/weapon.js's attachToWeapon
+  const armsReady = createArms(weapon); // parents itself under the weapon's own group - see arms.js/weapon.js's attachToWeapon
   const shootEffects = createShootEffects(scene);
   const audio = createAudioManager();
   audio.playSfx('matchStart');
   audio.playMusic();
 
-  createMap(scene);
-  createProps(scene);
-  createNature(scene);
+  createMap(scene); // procedural geometry, no loader - always instant, nothing to await here
+  const propsReady = createProps(scene);
+  const natureReady = createNature(scene);
   const targets = createTargets(scene);
+
+  // Resolves once every loader-based asset for THIS match screen has
+  // actually finished (or failed, tolerantly - see each function's own
+  // comment) - the player's own weapon/arms, decorative props/nature, and
+  // (in case a very fast match, e.g. a Private room the host starts solo,
+  // beat app.js's page-load preload) every character variant + the
+  // remote-player weapon template. Everything here already runs the
+  // instant startGame() is called, same as before this existed - this
+  // promise doesn't delay any of that, it only delays REVEALING it (see
+  // matchLoadingScreenEl below), so nothing about network/animate timing
+  // changes; a player just never sees a placeholder gun or props popping
+  // in after the fact.
+  // matchLoadingScreenEl is a PERSISTENT element, reused by whichever match
+  // is running next - if this match ends (or this player leaves it) before
+  // its own assets finish loading, the stale .then() below must not fire
+  // and hide a LATER match's freshly-shown loading screen. stop() (below)
+  // flips this so the check right before hiding it can tell the two apart.
+  let stopped = false;
+  const matchAssetsReady = Promise.all([
+    weapon.ready, armsReady, propsReady, natureReady, preloadCharacterModels(), preloadRemoteWeaponModel(),
+  ]);
+  matchAssetsReady.then(() => {
+    if (!stopped) matchLoadingScreenEl.hidden = true;
+  });
   const potTracker = createPotTracker(
     gameScreenElement.querySelector('#pot-secured'),
     gameScreenElement.querySelector('#pot-at-risk'),
@@ -519,6 +551,7 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // WebGL context itself is the part that actually matters, since browsers
   // cap how many a page can hold at once.
   function stop() {
+    stopped = true;
     cancelAnimationFrame(animationFrameId);
     clearTimeout(respawnToastTimeoutId);
     clearInterval(respawnCountdownIntervalId);

@@ -20,6 +20,50 @@
 }
 #click-to-play.hidden { display: none; }
 
+/* Covers the canvas from the moment a match starts until every
+   loader-based asset (own weapon FBX, first-person arms FBX, decorative
+   props/nature GLTFs) has actually resolved - see gameScreen.js's
+   matchAssetsReady. Sits ABOVE #click-to-play (later in DOM order) so a
+   player can never click "click to play" and start looking around a scene
+   that's still popping props/weapons in underneath them. Toggled via the
+   `hidden` PROPERTY (el.hidden = ...), not a class - the explicit
+   [hidden] override below exists because this element's own `display: flex`
+   would otherwise silently beat the plain HTML `hidden` attribute at equal
+   specificity (see this project's own recurring CSS gotcha - any element
+   with its own `display` rule needs this same override). */
+#match-loading-screen {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--color-bg);
+  z-index: 5;
+}
+#match-loading-screen[hidden] { display: none; }
+
+#match-loading-spinner {
+  width: 42px;
+  height: 42px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: match-loading-spin 800ms linear infinite;
+}
+@keyframes match-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+#match-loading-label {
+  color: var(--color-text-secondary);
+  font-family: var(--font-display);
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* Small fixed crosshair at screen center, blend-mode so it stays visible
    against light or dark backgrounds without needing its own color logic. */
 #crosshair {

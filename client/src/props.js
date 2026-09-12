@@ -36,12 +36,16 @@ const PLACEMENTS = [
 
 const loader = new GLTFLoader();
 
-// Fire-and-forget per prop - a slow/failed load for one placement just
-// means that one prop doesn't appear, never blocks the rest of the scene
-// (same "don't let one bad asset take down the whole page" principle as
-// characterModel.js's preload).
+// A slow/failed load for one placement just means that one prop doesn't
+// appear, never blocks the rest of the scene (same "don't let one bad
+// asset take down the whole page" principle as characterModel.js's
+// preload) - each placement resolves independently either way. Returns a
+// promise that resolves once every placement has settled (loaded or
+// failed) - see gameScreen.js's matchAssetsReady, which waits on this
+// before revealing the match to the player, instead of letting these pop
+// in one by one after they can already see the scene.
 export function createProps(scene) {
-  for (const { prop, x, z, rotationY } of PLACEMENTS) {
+  return Promise.all(PLACEMENTS.map(({ prop, x, z, rotationY }) => new Promise((resolve) => {
     const url = PROP_URLS[prop];
     loader.load(
       url,
@@ -50,9 +54,13 @@ export function createProps(scene) {
         model.position.set(x, 0, z);
         model.rotation.y = rotationY;
         scene.add(model);
+        resolve();
       },
       undefined,
-      (err) => console.error(`Failed to load prop "${prop}" (${url}):`, err),
+      (err) => {
+        console.error(`Failed to load prop "${prop}" (${url}):`, err);
+        resolve();
+      },
     );
-  }
+  })));
 }

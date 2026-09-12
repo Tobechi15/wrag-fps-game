@@ -135,6 +135,13 @@ export function createWeapon(camera, gunKey = DEFAULT_GUN_VARIANT) {
   camera.add(placeholder);
 
   const pendingAttachments = []; // see attachToWeapon() below
+  let resolveReady;
+  // Resolves once the real model has replaced the placeholder (or the load
+  // fails and it's just staying a placeholder) - see gameScreen.js's
+  // matchAssetsReady, which waits on this before revealing the match to
+  // the player, so nobody sees the placeholder box swap into the real gun
+  // mid-view.
+  const ready = new Promise((resolve) => { resolveReady = resolve; });
 
   // The muzzle flash/tracer effects (see shootEffects.js) need a world
   // position to spawn at, but the real model doesn't finish loading
@@ -143,6 +150,7 @@ export function createWeapon(camera, gunKey = DEFAULT_GUN_VARIANT) {
   const handle = {
     weaponGroup: null, // set once the real model loads
     muzzleOffsetZ: null, // set alongside weaponGroup - see getMuzzleWorldPosition below
+    ready,
     // Parents `object3D` under the (centered, normalized) gun model itself
     // - used by arms.js so the arms move in EXACT lockstep with the gun
     // (including its sway) rather than being independently positioned and
@@ -213,9 +221,13 @@ export function createWeapon(camera, gunKey = DEFAULT_GUN_VARIANT) {
       handle.weaponGroup = weaponGroup;
       for (const object3D of pendingAttachments) weaponGroup.add(object3D);
       pendingAttachments.length = 0;
+      resolveReady();
     },
     undefined,
-    (err) => console.error(`Failed to load weapon model "${gunKey}", keeping the placeholder box:`, err),
+    (err) => {
+      console.error(`Failed to load weapon model "${gunKey}", keeping the placeholder box:`, err);
+      resolveReady(); // a failed load shouldn't block the match from starting - same tolerance as characterModel.js's preload
+    },
   );
 
   return handle;
