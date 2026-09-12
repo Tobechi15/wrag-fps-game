@@ -8,8 +8,11 @@ import { createAudioManager } from './audio.js';
 // The actual, already-working game client (Part A). The dashboard's Play
 // button fetches a one-time token first (see auth-client.js's
 // fetchPlayToken) so the game server can attach this match's result to the
-// real account instead of playing fully anonymously.
-const GAME_CLIENT_URL = 'http://127.0.0.1:5173/';
+// real account instead of playing fully anonymously. VITE_GAME_CLIENT_URL
+// (see .env.example) is the real deployed client's URL, baked in at build
+// time - set as a Vercel project env var; falls back to the local dev
+// default when unset.
+const GAME_CLIENT_URL = import.meta.env.VITE_GAME_CLIENT_URL ?? 'http://127.0.0.1:5173/';
 
 const ROTATION_SPEED = 0.4; // radians/second
 const BOB_AMPLITUDE = 0.035;

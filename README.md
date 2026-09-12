@@ -125,6 +125,54 @@ note at the bottom.
 To test multiplayer, open a second browser window (not just a tab) and
 deploy into the same mode.
 
+## Deploying (server on Render, site + client on Vercel)
+
+Three separately-hosted pieces, same three folders as local dev:
+
+**Server** (`server/`) — a real Node process (WebSocket game server +
+Express API on one shared port, see `server/src/index.js`), hosted on
+Render or similar. Needs `DATABASE_URL` (a real Postgres instance),
+`SESSION_SECRET`, and `NODE_ENV=production` set in the host's own
+environment config — see `server/.env.example` for every var and what it
+does. Render assigns `PORT` itself; never hardcode it.
+
+**Site and client** (`site/`, `client/`) — both plain static Vite builds,
+each its own Vercel project with **Root Directory** set to `site` or
+`client` respectively (Vercel auto-detects the Vite framework preset —
+build command `vite build` / `npm run build`, output directory `dist`, no
+changes needed there).
+
+Both need a couple of `VITE_`-prefixed env vars set in their Vercel
+project's Environment Variables (baked into the bundle at BUILD time, so
+setting them requires a redeploy to take effect — see each folder's
+`.env.example`):
+
+- **`client`**: `VITE_GAME_SERVER_URL` — the server's full `wss://` URL
+  (e.g. `wss://your-app.onrender.com`). Without this, the client tries to
+  guess the backend's address from its own hostname, which is wrong once
+  the client and the server are two unrelated domains. `VITE_DASHBOARD_URL`
+  — the deployed site's `/dashboard.html` URL, for the post-match screen's
+  "Back to Dashboard" button.
+- **`site`**: `VITE_GAME_CLIENT_URL` — the deployed client's URL, for the
+  dashboard's Play/Deploy button.
+
+**`site` also needs `vercel.json`'s rewrite destination edited** to point
+at the real server URL — every `/api/*` call the site makes
+(auth/dashboard/wallet/admin) gets rewritten server-side to the real
+backend, so the browser sees it as same-origin the whole time (matching
+what `site/vite.config.js`'s dev-only proxy already does locally) — this
+is what keeps the session cookie working with `sameSite: 'lax'` and no
+CORS headers needed at all. Vite's dev proxy has NO effect on a production
+build; this rewrite is the production equivalent and is required, not
+optional.
+
+The client's WebSocket connection to the server is NOT proxied through
+Vercel — it connects directly, cross-origin, straight to
+`VITE_GAME_SERVER_URL` above. This is safe because the play-token handoff
+(`server/src/auth/playTokens.js`) was already built specifically so the
+game server never needs to see the site's session cookie in the first
+place — see that file's own comment.
+
 ## Controls
 
 **Desktop:**

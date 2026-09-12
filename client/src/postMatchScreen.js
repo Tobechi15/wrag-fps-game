@@ -15,9 +15,11 @@ const RESULT_TEXT = {
   'survival-ended': { label: 'Run Ended', className: 'danger' },
 };
 
-// Hardcoded default dev port, matching the GAME_CLIENT_URL pattern used in
-// the other direction by site/src/dashboard.js.
-const DASHBOARD_URL = 'http://127.0.0.1:5175/dashboard.html';
+// VITE_DASHBOARD_URL (see .env.example) is the real deployed site's URL,
+// baked in at build time - set as a Vercel project env var; falls back to
+// the local dev default when unset. Mirrors the GAME_CLIENT_URL pattern
+// used in the other direction by site/src/dashboard.js.
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL ?? 'http://127.0.0.1:5175/dashboard.html';
 
 export function createPostMatchScreen(rootElement, { onReturnToLobby }) {
   rootElement.innerHTML = `
