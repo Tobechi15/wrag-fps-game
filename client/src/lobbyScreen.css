@@ -1,5 +1,17 @@
 #lobby-screen {
-  min-height: 100vh;
+  /* dvh over vh - see index.html's own comment on why (mobile
+     address-bar-driven viewport height changes). height (not min-height)
+     + overflow-y:auto is the actual overflow fix: min-height alone let a
+     centered flex column TALLER than a short landscape-phone viewport
+     (e.g. returning to a lobby with the queue list + stake panel + tier
+     select all visible) overflow equally past BOTH the top and bottom of
+     the screen with no way to reach the clipped parts, since the page
+     body itself has overflow:hidden (see index.html) - this element is
+     now the scroll container instead, so tall content scrolls internally
+     rather than clipping. */
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,5 +1,10 @@
 #post-match-screen {
-  min-height: 100vh;
+  /* Same short-landscape-viewport overflow fix as #lobby-screen - see
+     lobbyScreen.css's own comment for why height+overflow-y:auto replaces
+     min-height here. */
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: center;

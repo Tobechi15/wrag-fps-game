@@ -4,7 +4,13 @@
 // gameScreen.js), so desktop's mouse/keyboard path is completely
 // unaffected. Fixed default layout only - no drag-to-reposition editor
 // this pass, per the plan.
-const JOYSTICK_MAX_RADIUS = 45; // px the knob can travel from center before clamping
+// How long the auto-rotate tip banner stays fully visible before starting
+// its fade, and how long the fade transition itself takes (must match
+// touchControls.css's .touch-autorotate-tip transition duration, so the
+// element is actually re-hidden right as the fade visually finishes, not
+// noticeably before/after).
+const AUTO_ROTATE_TIP_VISIBLE_MS = 4000;
+const AUTO_ROTATE_TIP_FADE_MS = 700;
 
 // Deliberately NOT `'ontouchstart' in window || navigator.maxTouchPoints > 0`
 // - that flags ANY touch-capable screen, including a touchscreen laptop or
@@ -53,6 +59,13 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
       <button class="touch-btn touch-btn-jump" id="touch-btn-jump" type="button">Jump</button>
       <button class="touch-btn touch-btn-fire" id="touch-btn-fire" type="button">Fire</button>
     </div>
+    <div class="touch-autorotate-tip" id="touch-autorotate-tip" hidden>
+      Tip: turn on auto-rotate in your device settings for the best experience
+    </div>
+    <div class="touch-orientation-overlay" id="touch-orientation-overlay" hidden>
+      <div class="rotate-icon"></div>
+      <div class="rotate-message">Rotate your device to landscape to play</div>
+    </div>
   `;
   gameScreenElement.appendChild(root);
 
@@ -60,6 +73,8 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
   const joystickBase = root.querySelector('#touch-joystick-base');
   const joystickKnob = root.querySelector('#touch-joystick-knob');
   const lookZone = root.querySelector('#touch-look-zone');
+  const orientationOverlayEl = root.querySelector('#touch-orientation-overlay');
+  const autoRotateTipEl = root.querySelector('#touch-autorotate-tip');
   const fireBtn = root.querySelector('#touch-btn-fire');
   const jumpBtn = root.querySelector('#touch-btn-jump');
   const crouchBtn = root.querySelector('#touch-btn-crouch');
@@ -72,6 +87,13 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
   let joystickTouchId = null;
   let joystickOriginX = 0;
   let joystickOriginY = 0;
+  // How far the knob can travel from center before clamping - MEASURED
+  // fresh at every touchstart, not a fixed constant, since
+  // touchControls.css now sizes the base/knob fluidly (clamp()'d to the
+  // viewport, see that file's comment) rather than a fixed px size; a
+  // hardcoded radius here would drift out of sync with whatever size the
+  // CSS actually rendered on this particular screen.
+  let joystickMaxRadius = 45;
 
   function resetJoystick() {
     joystickTouchId = null;
@@ -83,9 +105,11 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
     if (joystickTouchId !== null) return; // already tracking a touch here - ignore a second finger
     const touch = event.changedTouches[0];
     joystickTouchId = touch.identifier;
-    const rect = joystickBase.getBoundingClientRect();
-    joystickOriginX = rect.left + rect.width / 2;
-    joystickOriginY = rect.top + rect.height / 2;
+    const baseRect = joystickBase.getBoundingClientRect();
+    const knobRect = joystickKnob.getBoundingClientRect();
+    joystickOriginX = baseRect.left + baseRect.width / 2;
+    joystickOriginY = baseRect.top + baseRect.height / 2;
+    joystickMaxRadius = baseRect.width / 2 - knobRect.width / 2;
     event.preventDefault();
   }
 
@@ -95,7 +119,7 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
     if (!touch) return;
     const dx = touch.clientX - joystickOriginX;
     const dy = touch.clientY - joystickOriginY;
-    const distance = Math.min(Math.sqrt(dx * dx + dy * dy), JOYSTICK_MAX_RADIUS);
+    const distance = Math.min(Math.sqrt(dx * dx + dy * dy), joystickMaxRadius);
     const angle = Math.atan2(dy, dx);
     const clampedX = Math.cos(angle) * distance;
     const clampedY = Math.sin(angle) * distance;
@@ -105,7 +129,7 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
     // X is ALSO inverted (left/right swapped), per the user's request -
     // the knob itself still visually tracks the real finger position
     // above, only the resulting strafe direction is flipped.
-    playerControls.setVirtualMoveInput(-clampedX / JOYSTICK_MAX_RADIUS, -clampedY / JOYSTICK_MAX_RADIUS);
+    playerControls.setVirtualMoveInput(-clampedX / joystickMaxRadius, -clampedY / joystickMaxRadius);
     event.preventDefault();
   }
 
@@ -183,7 +207,59 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
   }
   crouchBtn.addEventListener('touchstart', onCrouchTouchStart, { passive: false });
 
+  // Blocking "rotate your device" prompt - this game's touch layout
+  // (bottom-left joystick, bottom-right buttons, right-half look-drag)
+  // only makes sense in landscape, so portrait is treated as unplayable
+  // rather than letting someone try to use a cramped/overlapping layout.
+  // Reactive to `orientationchange`-driven media query changes, not
+  // checked once at mount - a player can physically rotate their phone
+  // mid-match, and the prompt should appear/disappear live as they do.
+  const portraitQuery = window.matchMedia('(orientation: portrait)');
+  let autoRotateTipTimeoutIds = [];
+
+  function clearAutoRotateTipTimers() {
+    for (const id of autoRotateTipTimeoutIds) clearTimeout(id);
+    autoRotateTipTimeoutIds = [];
+  }
+
+  // A phone that's rotated but has auto-rotate OFF never actually fires
+  // 'orientationchange'/updates this media query at all - the OS just
+  // keeps rendering the page upright regardless of physical orientation,
+  // so from this code's perspective it looks identical to "still
+  // portrait." There's no reliable way to detect THAT specific case (no
+  // web API exposes the device's physical orientation independent of the
+  // OS's own rotation-lock state) - so this tip is shown alongside every
+  // portrait prompt, covering both "please physically rotate" and "please
+  // also check auto-rotate is on" in one nudge, rather than trying (and
+  // frequently failing) to tell the two apart. Non-blocking, fades on its
+  // own - never dismissed by the user, never re-shown while already
+  // visible (clearAutoRotateTipTimers + the immediate re-hide below keep
+  // repeated portrait->landscape->portrait flips from stacking timers).
+  function showAutoRotateTip() {
+    clearAutoRotateTipTimers();
+    autoRotateTipEl.hidden = false;
+    autoRotateTipEl.classList.remove('fade-out');
+    autoRotateTipTimeoutIds.push(setTimeout(() => {
+      autoRotateTipEl.classList.add('fade-out');
+    }, AUTO_ROTATE_TIP_VISIBLE_MS));
+    autoRotateTipTimeoutIds.push(setTimeout(() => {
+      autoRotateTipEl.hidden = true;
+      autoRotateTipEl.classList.remove('fade-out');
+    }, AUTO_ROTATE_TIP_VISIBLE_MS + AUTO_ROTATE_TIP_FADE_MS));
+  }
+
+  function updateOrientationOverlay() {
+    const isPortrait = portraitQuery.matches;
+    orientationOverlayEl.hidden = !isPortrait;
+    if (isPortrait) showAutoRotateTip();
+  }
+
+  updateOrientationOverlay();
+  portraitQuery.addEventListener('change', updateOrientationOverlay);
+
   function dispose() {
+    clearAutoRotateTipTimers();
+    portraitQuery.removeEventListener('change', updateOrientationOverlay);
     joystickZone.removeEventListener('touchstart', onJoystickTouchStart);
     joystickZone.removeEventListener('touchmove', onJoystickTouchMove);
     joystickZone.removeEventListener('touchend', onJoystickTouchEnd);
