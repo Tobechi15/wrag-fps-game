@@ -102,7 +102,10 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
     joystickKnob.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
     // Normalize to -1..1 for player.js. Dragging UP (negative screen Y)
     // means forward, so that axis is inverted relative to raw screen Y.
-    playerControls.setVirtualMoveInput(clampedX / JOYSTICK_MAX_RADIUS, -clampedY / JOYSTICK_MAX_RADIUS);
+    // X is ALSO inverted (left/right swapped), per the user's request -
+    // the knob itself still visually tracks the real finger position
+    // above, only the resulting strafe direction is flipped.
+    playerControls.setVirtualMoveInput(-clampedX / JOYSTICK_MAX_RADIUS, -clampedY / JOYSTICK_MAX_RADIUS);
     event.preventDefault();
   }
 
