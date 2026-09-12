@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WRAG FPS Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/src/theme.css" />
+  <link rel="stylesheet" href="/src/lobbyScreen.css" />
+  <link rel="stylesheet" href="/src/postMatchScreen.css" />
+  <link rel="stylesheet" href="/src/game.css" />
+  <link rel="stylesheet" href="/src/touchControls.css" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--color-bg);
+      color: var(--color-text-primary);
+      font-family: var(--font-body);
+    }
+  </style>
+</head>
+<body>
+  <div id="lobby-screen" hidden></div>
+
+  <div id="game-screen" hidden>
+    <div id="click-to-play">Click to play</div>
+    <div id="crosshair"></div>
+    <div id="pot-display">
+      <div class="hud-panel-title">Match Points</div>
+      <div class="pot-row at-risk">
+        <span class="label">At Risk</span>
+        <span class="stat-value danger" id="pot-at-risk">0</span>
+        <span class="pot-popup" id="pot-popup"></span>
+      </div>
+      <div class="pot-row secured">
+        <span class="label">Secured</span>
+        <span class="stat-value success" id="pot-secured">0</span>
+      </div>
+    </div>
+    <div id="health-display">
+      <div class="hud-panel-title">Vitals</div>
+      <div class="health-row">
+        <span class="label">Health</span>
+        <span id="health-label">100/100</span>
+      </div>
+      <div class="health-bar"><div class="health-bar-fill" id="health-bar-fill"></div></div>
+      <div class="lives-row" id="lives-row" hidden>
+        <span class="label">Lives</span>
+        <div class="lives-pips" id="lives-pips"></div>
+      </div>
+    </div>
+    <div id="hit-flash"></div>
+    <div id="respawn-toast"></div>
+    <div id="match-end-dim"></div>
+    <div id="win-banner"></div>
+    <div id="failure-banner"></div>
+    <div id="respawn-countdown-banner" hidden>
+      <span id="respawn-countdown-label">Eliminated</span>
+      <span id="respawn-countdown-value">5</span>
+    </div>
+    <div id="extraction-status" hidden>
+      <span id="extraction-status-label">EXTRACTING...</span>
+      <div class="extraction-progress-track">
+        <div class="extraction-progress-fill" id="extraction-progress-fill"></div>
+      </div>
+    </div>
+    <div id="coop-status-bar" hidden>
+      <div class="versus-bar-team versus-bar-ally" id="coop-status-ally-list"></div>
+      <div class="versus-bar-score">
+        <span class="versus-bar-score-value" id="coop-score-ally">0</span>
+        <span class="versus-bar-score-sep">:</span>
+        <span class="versus-bar-score-value enemy" id="coop-score-enemy">0</span>
+      </div>
+      <div class="versus-bar-team versus-bar-enemy" id="coop-status-enemy-list"></div>
+    </div>
+    <div id="match-status-bar" hidden>
+      <div class="match-status-stat">
+        <span class="label">Kills</span>
+        <span class="stat-value" id="match-status-kills">0</span>
+      </div>
+      <div class="match-status-divider"></div>
+      <div class="match-status-stat">
+        <span class="label">Remaining</span>
+        <span class="stat-value" id="match-status-remaining">-- / --</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="post-match-screen" hidden></div>
+
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>

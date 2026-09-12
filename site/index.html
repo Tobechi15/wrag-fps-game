@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WRAG — Enter. Eliminate. Extract.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/src/theme.css" />
+  <link rel="stylesheet" href="/src/nav.css" />
+  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="stylesheet" href="/src/toast.css" />
+</head>
+<body>
+  <!-- NAV -->
+  <header class="nav">
+    <div class="nav-inner">
+      <div class="wordmark">WRAG</div>
+      <nav class="nav-links">
+        <a href="#how-it-works">How It Works</a>
+        <a href="#risk-reward">Risk &amp; Reward</a>
+        <a href="#leaderboard">Leaderboard</a>
+      </nav>
+      <div class="nav-actions" id="nav-actions-signed-out">
+        <a class="btn nav-login" href="/login.html">Log In</a>
+        <a class="btn btn-primary nav-play play-now-btn" href="/signup.html">Play Now</a>
+      </div>
+      <div class="nav-actions" id="nav-actions-signed-in" hidden>
+        <span class="nav-callsign" id="nav-callsign"></span>
+        <a class="btn" href="/account.html">Account</a>
+        <button class="btn" id="nav-logout" type="button">Log Out</button>
+        <a class="btn btn-primary nav-play play-now-btn" href="/signup.html">Play Now</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-backdrop" aria-hidden="true"></div>
+      <div class="glow-orb hero-glow-1" aria-hidden="true"></div>
+      <div class="glow-orb hero-glow-2" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <h1 class="hero-headline">ENTER.<br />ELIMINATE.<br />EXTRACT.</h1>
+          <p class="hero-sub">
+            Stake points to deploy into a live match. Eliminate opponents to grow your pot.
+            Reach an extraction zone before someone eliminates you first — only what you
+            extract is actually yours.
+          </p>
+          <div class="hero-ctas">
+            <a class="btn btn-primary btn-large play-now-btn" href="/signup.html">Play Now</a>
+            <a class="btn btn-large" href="#how-it-works">How It Works</a>
+          </div>
+        </div>
+
+        <div class="live-match-panel panel tilt">
+          <div class="live-match-header">
+            <span class="live-dot"></span>
+            <span class="label">Match #08421</span>
+          </div>
+          <div class="live-match-grid">
+            <div class="live-stat">
+              <span class="label">Players</span>
+              <span class="stat-value" id="live-players">18/24</span>
+            </div>
+            <div class="live-stat">
+              <span class="label">Stake</span>
+              <span class="stat-value">100</span>
+            </div>
+            <div class="live-stat">
+              <span class="label">Current Pot</span>
+              <span class="stat-value success" id="live-pot">2,400</span>
+            </div>
+            <div class="live-stat">
+              <span class="label">Status</span>
+              <span class="stat-value success">Extraction Open</span>
+            </div>
+          </div>
+          <div class="live-match-footer">
+            <span class="label">Time Remaining</span>
+            <span class="stat-value mono-timer" id="live-timer">08:42</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="split-section" id="how-it-works">
+      <div class="split-grid">
+        <div class="split-context reveal">
+          <span class="eyebrow">The Loop</span>
+          <h2 class="split-title">How It Works</h2>
+          <p class="split-copy">
+            Every match runs the same four-part cycle. There's no partial credit for surviving —
+            the only thing that converts a run into something real is reaching extraction while
+            you're still standing. Get killed first, and everything you earned that match is gone.
+          </p>
+        </div>
+        <div class="split-content">
+          <div class="steps">
+            <div class="step reveal">
+              <span class="step-number">01</span>
+              <h3 class="step-name">Stake</h3>
+              <p class="step-desc">Choose your entry stake before you deploy.</p>
+            </div>
+            <div class="step-arrow" aria-hidden="true">&darr;</div>
+            <div class="step reveal">
+              <span class="step-number">02</span>
+              <h3 class="step-name">Deploy</h3>
+              <p class="step-desc">Enter the battlefield alongside real players and hostiles.</p>
+            </div>
+            <div class="step-arrow" aria-hidden="true">&darr;</div>
+            <div class="step reveal">
+              <span class="step-number">03</span>
+              <h3 class="step-name">Eliminate</h3>
+              <p class="step-desc">Kill opponents to grow your pot. Every kill is worth more than loot.</p>
+            </div>
+            <div class="step-arrow" aria-hidden="true">&darr;</div>
+            <div class="step step-extract reveal">
+              <span class="step-number">04</span>
+              <h3 class="step-name">Extract</h3>
+              <p class="step-desc">Reach a zone and hold it to bank everything you're carrying.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GAME INTERFACE PREVIEW -->
+    <section class="split-section split-section-reverse theme-info">
+      <div class="section-bg" aria-hidden="true"></div>
+      <div class="split-grid">
+        <div class="split-context reveal">
+          <span class="eyebrow">The Interface</span>
+          <h2 class="split-title">Nothing Is Hidden</h2>
+          <p class="split-copy">
+            The HUD keeps the stakes visible at all times — your position, your current pot, and
+            how exposed you are to nearby threats. Everything you've earned this match is marked
+            "at risk" until the moment you extract. There's no ambiguity about where you stand.
+          </p>
+        </div>
+        <div class="split-content">
+          <div class="preview-mock panel reveal tilt">
+            <div class="preview-mock-topbar">
+              <span class="label">Match Timer</span>
+              <span class="stat-value mono-timer">04:12</span>
+              <span class="label">Players Remaining</span>
+              <span class="stat-value">6</span>
+            </div>
+
+            <div class="preview-mock-body">
+              <div class="preview-map panel">
+                <span class="label">Tactical Map</span>
+                <div class="map-canvas">
+                  <div class="map-blip map-blip-self"></div>
+                  <div class="map-blip map-blip-hostile" style="top: 30%; left: 65%;"></div>
+                  <div class="map-blip map-blip-hostile" style="top: 68%; left: 40%;"></div>
+                  <div class="map-zone"></div>
+                </div>
+              </div>
+
+              <div class="preview-stats">
+                <div class="preview-econ panel">
+                  <div class="econ-row"><span class="label">Kills</span><span class="stat-value">+80</span></div>
+                  <div class="econ-row"><span class="label">Loot</span><span class="stat-value">+120</span></div>
+                  <div class="econ-row"><span class="label">Extraction Bonus</span><span class="stat-value success">+250</span></div>
+                  <div class="econ-total">
+                    <span class="label">Total</span>
+                    <span class="stat-value">450 <span class="unit">PTS</span></span>
+                  </div>
+                  <div class="econ-status danger">At Risk</div>
+                </div>
+
+                <div class="preview-threat panel">
+                  <span class="label">Threat Level</span>
+                  <span class="stat-value danger">High</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RISK / REWARD -->
+    <section class="split-section theme-risk" id="risk-reward">
+      <div class="section-bg" aria-hidden="true"></div>
+      <div class="split-grid">
+        <div class="split-context reveal">
+          <span class="eyebrow">Choose Your Exposure</span>
+          <h2 class="split-title">Risk &amp; Reward</h2>
+          <p class="split-copy">
+            Not every deployment carries the same weight. A low stake buys a calmer lobby and a
+            shorter walk to a safe extraction. A high stake puts you in with players who have more
+            to lose — and more reason to stop you from leaving with it.
+          </p>
+        </div>
+        <div class="split-content">
+          <div class="risk-cards">
+            <div class="risk-card panel reveal tilt">
+              <div class="risk-card-header"><span class="label">Low Risk</span></div>
+              <div class="risk-bar-row">
+                <span class="label">Stake</span>
+                <div class="risk-bar"><div class="risk-bar-fill" style="width: 20%;"></div></div>
+              </div>
+              <div class="risk-bar-row">
+                <span class="label">Potential Reward</span>
+                <div class="risk-bar"><div class="risk-bar-fill" style="width: 25%;"></div></div>
+              </div>
+              <div class="risk-bar-row">
+                <span class="label">Extraction Difficulty</span>
+                <div class="risk-bar"><div class="risk-bar-fill success" style="width: 20%;"></div></div>
+              </div>
+              <p class="risk-desc">Smaller stake, calmer lobbies, safer extraction routes.</p>
+            </div>
+
+            <div class="risk-card panel risk-card-high reveal tilt">
+              <div class="risk-card-header"><span class="label">High Risk</span></div>
+              <div class="risk-bar-row">
+                <span class="label">Stake</span>
+                <div class="risk-bar"><div class="risk-bar-fill danger" style="width: 90%;"></div></div>
+              </div>
+              <div class="risk-bar-row">
+                <span class="label">Potential Reward</span>
+                <div class="risk-bar"><div class="risk-bar-fill danger" style="width: 95%;"></div></div>
+              </div>
+              <div class="risk-bar-row">
+                <span class="label">Extraction Difficulty</span>
+                <div class="risk-bar"><div class="risk-bar-fill danger" style="width: 85%;"></div></div>
+              </div>
+              <p class="risk-desc">Larger stake, hostile lobbies, greater potential loss.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAYER PROGRESSION (example profile - not a real session yet) -->
+    <section class="split-section split-section-reverse theme-progress">
+      <div class="section-bg" aria-hidden="true"></div>
+      <div class="split-grid">
+        <div class="split-context reveal">
+          <span class="eyebrow">Your Record</span>
+          <h2 class="split-title">Player Progression</h2>
+          <p class="split-copy">
+            Every operator builds a record — kills, extractions, and the gap between what they
+            earned and what they actually walked away with. Extraction rate, not kill count, is
+            the number that separates operators who survive their own success from ones who
+            don't. Example profile shown; sign in to track your own.
+          </p>
+        </div>
+        <div class="split-content">
+          <div class="profile-card panel reveal tilt">
+            <div class="profile-header">
+              <div class="profile-name">OPERATOR_DEMO</div>
+              <div class="profile-level">Level <span class="mono-num">14</span></div>
+            </div>
+            <div class="profile-grid">
+              <div class="profile-stat"><span class="label">Total Kills</span><span class="stat-value">312</span></div>
+              <div class="profile-stat"><span class="label">Extractions</span><span class="stat-value success">64</span></div>
+              <div class="profile-stat"><span class="label">Extraction Rate</span><span class="stat-value">58%</span></div>
+              <div class="profile-stat"><span class="label">Total Earned</span><span class="stat-value success">18,240 <span class="unit">PTS</span></span></div>
+              <div class="profile-stat"><span class="label">Highest Extraction</span><span class="stat-value success">1,120 <span class="unit">PTS</span></span></div>
+              <div class="profile-stat"><span class="label">Win Rate</span><span class="stat-value">41%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEADERBOARD -->
+    <section class="split-section theme-gold" id="leaderboard">
+      <div class="section-bg" aria-hidden="true"></div>
+      <div class="split-grid">
+        <div class="split-context reveal">
+          <span class="eyebrow">Standings</span>
+          <h2 class="split-title">Leaderboard</h2>
+          <p class="split-copy">
+            Ranked by earnings, not kills. Getting eliminated while carrying a huge pot is worth
+            exactly nothing — the board only counts what actually made it out. Hover a row for a
+            closer look. Example standings shown.
+          </p>
+        </div>
+        <div class="split-content">
+          <div class="leaderboard-table panel reveal">
+            <div class="leaderboard-row leaderboard-header-row">
+              <span>Rank</span><span>Player</span><span>Kills</span><span>Extractions</span><span>Earnings</span><span>Extraction Rate</span>
+            </div>
+            <div class="leaderboard-row"><span class="mono-num">01</span><span>ShadowFox_88</span><span>891</span><span>203</span><span class="success">54,120</span><span>62%</span></div>
+            <div class="leaderboard-row"><span class="mono-num">02</span><span>NightWraith_12</span><span>760</span><span>178</span><span class="success">47,900</span><span>59%</span></div>
+            <div class="leaderboard-row"><span class="mono-num">03</span><span>IronViper_45</span><span>702</span><span>150</span><span class="success">41,330</span><span>55%</span></div>
+            <div class="leaderboard-row"><span class="mono-num">04</span><span>GhostActual_03</span><span>655</span><span>140</span><span class="success">38,010</span><span>53%</span></div>
+            <div class="leaderboard-row"><span class="mono-num">05</span><span>RogueHawk_71</span><span>610</span><span>121</span><span class="success">33,780</span><span>49%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MATCH HISTORY -->
+    <section class="split-section split-section-reverse theme-log">
+      <div class="section-bg" aria-hidden="true"></div>
+      <div class="split-grid">
+        <div class="split-context reveal">
+          <span class="eyebrow">Deployment Log</span>
+          <h2 class="split-title">Match History</h2>
+          <p class="split-copy">
+            Every deployment leaves a record — what you staked, what you earned, and whether you
+            got to keep it. A high kill count with nothing extracted still reads as a loss. This
+            is what makes the risk/reward loop tangible instead of abstract.
+          </p>
+        </div>
+        <div class="split-content">
+          <div class="match-cards">
+            <div class="match-card panel reveal tilt">
+              <div class="match-card-header">
+                <span class="label">Match #08421</span>
+                <span class="match-result success">Extracted</span>
+              </div>
+              <div class="match-card-stats">
+                <div><span class="label">Stake</span><span class="stat-value">100</span></div>
+                <div><span class="label">Kills</span><span class="stat-value">7</span></div>
+                <div><span class="label">Earned</span><span class="stat-value success">+380</span></div>
+                <div><span class="label">Profit</span><span class="stat-value success">+280</span></div>
+              </div>
+            </div>
+            <div class="match-card panel reveal tilt">
+              <div class="match-card-header">
+                <span class="label">Match #08419</span>
+                <span class="match-result danger">Eliminated</span>
+              </div>
+              <div class="match-card-stats">
+                <div><span class="label">Stake</span><span class="stat-value">250</span></div>
+                <div><span class="label">Kills</span><span class="stat-value">3</span></div>
+                <div><span class="label">Earned</span><span class="stat-value">+90</span></div>
+                <div><span class="label">Loss</span><span class="stat-value danger">-250</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta">
+      <div class="glow-orb final-cta-glow" aria-hidden="true"></div>
+      <h2 class="section-title reveal">Every kill increases your value.<br />Only extraction makes it real.</h2>
+      <a class="btn btn-primary btn-large reveal play-now-btn" href="/signup.html">Play Now</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>WRAG — Prototype build. No real currency is used anywhere on this site.</span>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

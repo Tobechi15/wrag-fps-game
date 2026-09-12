@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.DS_Store
+.env
+
+# Raw downloaded asset packs (reference/source material) - only the actual
+# files a given feature needs are ever copied into client/public/assets/
+# (which IS committed - that's what Vite serves at runtime); nothing under
+# src/, index.html, or vite.config.js ever imports these full packs
+# directly (verified: grepped every folder name below across client/src,
+# client/index.html, and client/vite.config.js - only comment-level
+# attribution mentions, never a real file path). Large (700MB+ combined)
+# and not meant to ship - if a future feature needs another file out of one
+# of these, copy just that file into public/assets/, don't un-ignore the
+# whole pack.
+client/arms/
+client/armview fps template/
+client/kenney_platformer-kit/
+client/MuzzleFlashVFX/
+client/Stylized Nature MegaKit\[Standard\]/
+client/Ultimate Gun Pack by Quaternius/
+client/Ultimate Modular Men- Feb 2022/
+client/Universal Base Characters\[Standard\]/

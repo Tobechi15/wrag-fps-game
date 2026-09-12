@@ -1,0 +1,54 @@
+/* Shared top-nav styling - linked from every page (landing, login, signup,
+   dashboard). Previously duplicated separately in style.css and auth.css,
+   and missing entirely from the dashboard (which only linked theme.css +
+   its own dashboard.css) - that gap was a real bug: the dashboard's navbar
+   had no flex layout at all, since .nav/.nav-inner/.wordmark/.nav-actions
+   only existed in the landing page's stylesheet. One shared file now. */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(10, 11, 13, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  color: var(--color-text-primary);
+}
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.nav-actions .btn { padding: 8px 16px; font-size: 13px; text-decoration: none; display: inline-block; }
+/* A class selector like .nav-actions above ties in specificity with the
+   browser's built-in [hidden] { display: none } rule, and author CSS wins
+   that tie regardless of source order - so toggling the `hidden` attribute
+   in JS would otherwise be silently ignored and both nav blocks (signed-in
+   and signed-out) would render at once. This rule adds the ID for higher
+   specificity so it actually wins. Same root cause as the lobby-screen fix
+   in client/src/lobbyScreen.css. */
+#nav-actions-signed-in[hidden],
+#nav-actions-signed-out[hidden] {
+  display: none;
+}
+/* Same fix, same cause - the dashboard's Admin nav link (see dashboard.js)
+   is a .btn inside .nav-actions too. */
+#nav-admin-link[hidden] {
+  display: none;
+}
+.nav-callsign {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}

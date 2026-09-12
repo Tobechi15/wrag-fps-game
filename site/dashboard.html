@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WRAG — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/src/theme.css" />
+  <link rel="stylesheet" href="/src/nav.css" />
+  <link rel="stylesheet" href="/src/toast.css" />
+  <link rel="stylesheet" href="/src/dashboard.css" />
+</head>
+<body>
+  <!-- The character stage mounts its canvas here - full-bleed, behind
+       everything else. Kept empty until dashboard.js confirms the visitor
+       is actually logged in, so nobody sees a flash of dashboard content
+       before the auth redirect can kick in. -->
+  <div id="stage-root"></div>
+
+  <div id="dashboard-ui" hidden>
+    <header class="nav dashboard-nav">
+      <div class="nav-inner">
+        <a class="wordmark" href="/">WRAG</a>
+        <div class="nav-trapezoid">
+          <span class="label">Balance</span>
+          <span class="stat-value success" id="nav-balance">0 <span class="unit">PTS</span></span>
+          <button class="btn nav-deposit-btn" type="button" id="deposit-btn">+ Deposit</button>
+        </div>
+        <div class="nav-actions">
+          <a class="btn" href="/admin.html" id="nav-admin-link" hidden>Admin</a>
+          <a class="btn" href="/account.html">Account</a>
+          <button class="btn" id="dash-logout" type="button">Log Out</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Deposit modal: a demo/dev top-up only - directly credits the same
+         fake balance, clearly labeled as such. No payment details are ever
+         collected here (see server/src/api/wallet.js). -->
+    <div class="modal-backdrop" id="deposit-modal" hidden>
+      <div class="modal panel" role="dialog" aria-labelledby="deposit-modal-title">
+        <span class="modal-title" id="deposit-modal-title">Deposit (Demo)</span>
+        <p class="placeholder-note">
+          Demo/dev top-up only - directly credits your balance for testing.
+          No real payment is processed.
+        </p>
+        <div class="deposit-amounts">
+          <button class="btn deposit-amount-btn" type="button" data-amount="100">100 PTS</button>
+          <button class="btn deposit-amount-btn" type="button" data-amount="500">500 PTS</button>
+          <button class="btn deposit-amount-btn" type="button" data-amount="1000">1,000 PTS</button>
+          <button class="btn deposit-amount-btn" type="button" data-amount="5000">5,000 PTS</button>
+        </div>
+        <div class="auth-error" id="deposit-error" hidden></div>
+        <button class="btn" type="button" id="deposit-cancel-btn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- RIGHT DOCK: deploy (players expect Play on the right) -->
+    <div class="dock dock-right panel">
+      <span class="eyebrow">Play Mode</span>
+      <button class="tab-btn playmode-main active" type="button" data-mode="versus">Battle Royale</button>
+      <div class="tab-row playmode-secondary" id="playmode-tabs">
+        <button class="tab-btn" type="button" data-mode="coop">Co-op</button>
+        <button class="tab-btn" type="button" data-mode="private">Private</button>
+        <button class="tab-btn" type="button" data-mode="survival">Survival</button>
+      </div>
+
+      <span class="eyebrow dock-subsection">Stake</span>
+      <div class="tab-row" id="mode-tabs">
+        <button class="tab-btn active" type="button">Standard</button>
+        <button class="tab-btn" type="button" disabled>
+          High Stakes <span class="soon-badge">Soon</span>
+        </button>
+      </div>
+
+      <a class="btn btn-primary deploy-btn" id="deploy-btn" href="#">Play Now</a>
+    </div>
+
+    <!-- LEFT DOCK: loadout -->
+    <div class="dock dock-left panel">
+      <span class="eyebrow">Loadout</span>
+      <div class="tab-row" id="loadout-tabs">
+        <button class="tab-btn active" type="button" data-panel="character-options">Character</button>
+        <button class="tab-btn" type="button" data-panel="weapon-options">Weapon</button>
+      </div>
+      <div class="loadout-options" id="character-options" data-storage-key="wrag.characterVariant">
+        <button class="loadout-option" type="button" data-value="Swat">Swat</button>
+        <button class="loadout-option" type="button" data-value="Punk">Punk</button>
+        <button class="loadout-option" type="button" data-value="Worker">Worker</button>
+        <button class="loadout-option" type="button" data-value="Casual_2">Casual</button>
+      </div>
+      <div class="loadout-options" id="weapon-options" data-storage-key="wrag.gunVariant" hidden>
+        <button class="loadout-option" type="button" data-value="AssaultRifle_1">Assault Rifle</button>
+        <button class="loadout-option" type="button" data-value="Pistol_1">Pistol</button>
+        <button class="loadout-option" type="button" data-value="Shotgun_1">Shotgun</button>
+        <button class="loadout-option" type="button" data-value="SniperRifle_1">Sniper Rifle</button>
+      </div>
+    </div>
+
+    <!-- BOTTOM-LEFT DOCK: compact profile, stats/history tucked away -->
+    <div class="dock dock-profile panel">
+      <div class="profile-mini">
+        <span class="profile-mini-name" id="dash-callsign">OPERATOR</span>
+        <span class="profile-mini-level"><span id="dash-matches-played">0</span> Matches</span>
+      </div>
+      <button class="stats-toggle" id="stats-toggle" type="button">
+        <span id="stats-toggle-label">View Stats &amp; History</span>
+      </button>
+      <div class="stats-panel" id="stats-panel" hidden>
+        <div class="mini-stat-grid">
+          <div class="mini-stat"><span class="label">Kills</span><span class="stat-value" id="dash-stat-kills">0</span></div>
+          <div class="mini-stat"><span class="label">Extractions</span><span class="stat-value success" id="dash-stat-extractions">0</span></div>
+          <div class="mini-stat"><span class="label">Extraction Rate</span><span class="stat-value" id="dash-stat-rate">0%</span></div>
+          <div class="mini-stat"><span class="label">Total Earned</span><span class="stat-value success" id="dash-stat-earned">0</span></div>
+        </div>
+        <div class="mini-history" id="mini-history">
+          <p class="placeholder-note" id="mini-history-empty">No matches played yet - deploy to start your record.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/dashboard.js"></script>
+</body>
+</html>

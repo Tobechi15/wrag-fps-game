@@ -1,0 +1,79 @@
+#post-match-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+/* Same specificity gotcha as #lobby-screen - see lobbyScreen.css for why
+   this override is necessary. */
+#post-match-screen[hidden] {
+  display: none;
+}
+
+.post-match {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+
+.post-match-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.result-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+}
+.result-panel .stat {
+  background: var(--color-panel);
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.post-match-detail {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  min-height: 18px;
+}
+
+/* Coop's end-of-match team breakdown - see postMatchScreen.js's
+   renderTeamScoreboard. Deliberately does NOT set `display` on this
+   container (unlike most .panel-based blocks here) - it's toggled via
+   `.hidden` in JS, and a class-level `display` at the same specificity as
+   the browser's built-in [hidden]{display:none} silently wins over it (see
+   lobbyScreen.css's extensive comment on this exact recurring bug) -
+   text-align: left is enough layout for this one, so there's nothing to
+   override. The list itself reuses lobbyScreen.css's .queue-list, already
+   loaded on this page. */
+.team-scoreboard {
+  padding: 14px;
+  text-align: left;
+}
+
+.post-match-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.return-btn,
+.dashboard-btn {
+  padding: 16px;
+  font-size: 16px;
+}

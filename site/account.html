@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WRAG — Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/src/theme.css" />
+  <link rel="stylesheet" href="/src/nav.css" />
+  <link rel="stylesheet" href="/src/toast.css" />
+  <link rel="stylesheet" href="/src/auth.css" />
+  <link rel="stylesheet" href="/src/account.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="wordmark" href="/">WRAG</a>
+      <div class="nav-actions">
+        <a class="btn" href="/dashboard.html">Dashboard</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="account-page">
+    <h1 class="account-page-title">Account Settings</h1>
+
+    <div class="account-grid">
+      <!-- PROFILE: identity + callsign, the largest/most important card -->
+      <section class="account-card panel card-profile">
+        <span class="account-card-title">Profile</span>
+
+        <div class="account-info-row">
+          <span class="label">Email</span>
+          <p class="account-readonly" id="account-email">—</p>
+        </div>
+        <div class="account-info-row">
+          <span class="label">Member Since</span>
+          <p class="account-readonly" id="account-created">—</p>
+        </div>
+
+        <form class="auth-form" id="callsign-form">
+          <label class="auth-field">
+            <span class="label">Callsign</span>
+            <input type="text" name="callsign" required minlength="3" maxlength="20" />
+          </label>
+          <div class="auth-error" id="callsign-error" hidden></div>
+          <div class="auth-success" id="callsign-success" hidden>Callsign updated.</div>
+          <button class="btn btn-primary" type="submit">Save Callsign</button>
+        </form>
+      </section>
+
+      <!-- WALLET: separate card, own visual space -->
+      <section class="account-card panel card-wallet">
+        <span class="account-card-title">Wallet</span>
+        <div class="wallet-balance">
+          <span class="label">Available Balance</span>
+          <span class="stat-value success" id="wallet-balance">0 <span class="unit">PTS</span></span>
+        </div>
+        <div class="wallet-actions">
+          <button class="btn btn-primary" type="button" id="deposit-btn">Deposit (Demo)</button>
+          <button
+            class="btn withdraw-btn"
+            type="button"
+            data-placeholder="Withdrawals aren't available yet - this is a fake-points prototype, no real currency exists."
+          >
+            Withdraw
+          </button>
+        </div>
+        <p class="placeholder-note">Points earned by extracting from matches. Not real currency.</p>
+      </section>
+
+      <!-- Deposit modal: a demo/dev top-up only - directly credits the same
+           fake balance, clearly labeled as such. No payment details are
+           ever collected here (see server/src/api/wallet.js). -->
+      <div class="modal-backdrop" id="deposit-modal" hidden>
+        <div class="modal panel" role="dialog" aria-labelledby="deposit-modal-title">
+          <span class="modal-title" id="deposit-modal-title">Deposit (Demo)</span>
+          <p class="placeholder-note">
+            Demo/dev top-up only - directly credits your balance for testing.
+            No real payment is processed.
+          </p>
+          <div class="deposit-amounts">
+            <button class="btn deposit-amount-btn" type="button" data-amount="100">100 PTS</button>
+            <button class="btn deposit-amount-btn" type="button" data-amount="500">500 PTS</button>
+            <button class="btn deposit-amount-btn" type="button" data-amount="1000">1,000 PTS</button>
+            <button class="btn deposit-amount-btn" type="button" data-amount="5000">5,000 PTS</button>
+          </div>
+          <div class="auth-error" id="deposit-error" hidden></div>
+          <button class="btn" type="button" id="deposit-cancel-btn">Cancel</button>
+        </div>
+      </div>
+
+      <!-- SECURITY: separate card, own visual space -->
+      <section class="account-card panel card-security">
+        <span class="account-card-title">Security</span>
+        <form class="auth-form" id="password-form">
+          <label class="auth-field">
+            <span class="label">Current Password</span>
+            <input type="password" name="currentPassword" required autocomplete="current-password" />
+          </label>
+          <label class="auth-field">
+            <span class="label">New Password</span>
+            <input type="password" name="newPassword" required minlength="8" autocomplete="new-password" />
+          </label>
+          <div class="auth-error" id="password-error" hidden></div>
+          <div class="auth-success" id="password-success" hidden>Password updated.</div>
+          <button class="btn btn-primary" type="submit">Change Password</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/src/account.js"></script>
+</body>
+</html>

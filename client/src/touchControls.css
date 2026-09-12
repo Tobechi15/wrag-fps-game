@@ -1,0 +1,82 @@
+/* Mobile touch overlay (see touchControls.js) - only ever mounted on a
+   touch-detected device, so this is dead weight (an unused stylesheet,
+   negligible) on desktop. Sits above the WebGL canvas and the rest of the
+   HUD (pot/health/extraction/coop-status), which are all pointer-events:
+   none anyway, so nothing here needs to fight them for input. */
+#touch-controls {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+}
+
+.touch-joystick-zone {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 45%;
+  height: 55%;
+  touch-action: none; /* stop the page from also trying to scroll/zoom on this drag */
+}
+.touch-joystick-base {
+  position: absolute;
+  bottom: 30px; left: 30px;
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  background: rgba(17, 19, 22, 0.55);
+  border: 2px solid var(--color-border);
+}
+.touch-joystick-knob {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 46px; height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none; /* the base/zone handle the touch - this is purely visual */
+}
+
+/* Right half of the screen, minus the button cluster which sits on top of
+   it (later in DOM order = higher in the stacking context, see
+   touchControls.js) - any drag elsewhere in this area turns the camera. */
+.touch-look-zone {
+  position: absolute;
+  top: 0; right: 0;
+  width: 55%; height: 100%;
+  touch-action: none;
+}
+
+.touch-buttons {
+  position: absolute;
+  bottom: 30px; right: 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.touch-btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  background: rgba(17, 19, 22, 0.7);
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-btn-fire {
+  width: 84px; height: 84px;
+  font-size: 13px;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.touch-btn-jump,
+.touch-btn-crouch {
+  width: 60px; height: 60px;
+}
+.touch-btn-crouch.active {
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--color-success);
+  border-color: var(--color-success);
+}

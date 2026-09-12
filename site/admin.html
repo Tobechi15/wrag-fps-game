@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WRAG — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/src/theme.css" />
+  <link rel="stylesheet" href="/src/nav.css" />
+  <link rel="stylesheet" href="/src/account.css" />
+  <link rel="stylesheet" href="/src/admin.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="wordmark" href="/">WRAG</a>
+      <div class="nav-actions">
+        <a class="btn" href="/dashboard.html">Dashboard</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="account-page">
+    <h1 class="account-page-title">House Ledger</h1>
+    <p class="placeholder-note admin-intro">
+      Every number below is a real running total from the fake-points economy - see DEV_README.md's
+      "House ledger" section for exactly what each one tracks. Never touched by Survival (unstaked) or
+      the Deposit button (a demo top-up, not real revenue).
+    </p>
+
+    <div class="admin-grid">
+      <section class="account-card panel admin-card admin-highlight">
+        <span class="account-card-title">Fees Collected</span>
+        <span class="stat-value success admin-big-stat" id="admin-rake-collected">0 <span class="unit">PTS</span></span>
+        <p class="placeholder-note">
+          The house rake actually withheld from kill payouts and Private stake-pool wins - the literal
+          "fee" on every payout (HOUSE_RAKE_PERCENT, see .env.example).
+        </p>
+      </section>
+
+      <section class="account-card panel admin-card admin-highlight">
+        <span class="account-card-title">Profit</span>
+        <span class="stat-value admin-big-stat" id="admin-profit">0 <span class="unit">PTS</span></span>
+        <p class="placeholder-note">
+          Net stakes collected minus winnings paid out - the full P&amp;L, including stakes a player never
+          won back at all, not just the rake fee above.
+        </p>
+      </section>
+
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Stakes Collected</span>
+        <span class="stat-value admin-big-stat" id="admin-stakes-collected">0 <span class="unit">PTS</span></span>
+        <p class="placeholder-note">Gross entry stakes ever deducted from a real balance (Versus/Coop queue-join, Private room create/join).</p>
+      </section>
+
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Stakes Refunded</span>
+        <span class="stat-value admin-big-stat" id="admin-stakes-refunded">0 <span class="unit">PTS</span></span>
+        <p class="placeholder-note">Stakes refunded for leaving a queue/room before a match started - a neutral event, not a loss.</p>
+      </section>
+
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Net Stakes Collected</span>
+        <span class="stat-value admin-big-stat" id="admin-net-stakes">0 <span class="unit">PTS</span></span>
+        <p class="placeholder-note">Stakes collected minus stakes refunded.</p>
+      </section>
+
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Winnings Paid</span>
+        <span class="stat-value danger admin-big-stat" id="admin-winnings-paid">0 <span class="unit">PTS</span></span>
+        <p class="placeholder-note">Real payouts credited back to players - match winnings and Private stake-pool shares.</p>
+      </section>
+    </div>
+
+    <h2 class="account-page-title admin-section-title">Live Server</h2>
+    <p class="placeholder-note admin-intro">
+      In-memory state from the running game server (server/src/liveStats.js) - refreshes automatically
+      every few seconds. Resets to zero on a server restart, same as every other piece of live match state.
+    </p>
+    <div class="admin-grid admin-live-grid">
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Connected Players</span>
+        <span class="stat-value admin-big-stat" id="admin-live-connected">—</span>
+      </section>
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Active Matches</span>
+        <span class="stat-value admin-big-stat" id="admin-live-matches">—</span>
+      </section>
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Versus Queue</span>
+        <span class="stat-value admin-big-stat" id="admin-live-versus-queue">—</span>
+      </section>
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Coop Queue</span>
+        <span class="stat-value admin-big-stat" id="admin-live-coop-queue">—</span>
+      </section>
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Private Rooms</span>
+        <span class="stat-value admin-big-stat" id="admin-live-rooms">—</span>
+      </section>
+      <section class="account-card panel admin-card">
+        <span class="account-card-title">Players Waiting in Rooms</span>
+        <span class="stat-value admin-big-stat" id="admin-live-room-players">—</span>
+      </section>
+    </div>
+
+    <h2 class="account-page-title admin-section-title">Accounts</h2>
+    <p class="placeholder-note admin-intro">
+      Every registered account. Balance adjustments are a manual support/testing correction on the
+      fake-points economy - they never touch the house ledger above, since they're not a real
+      gameplay event.
+    </p>
+    <input
+      type="search"
+      class="admin-search-input"
+      id="admin-user-search"
+      placeholder="Search by callsign or email..."
+      aria-label="Search accounts"
+    />
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Callsign</th>
+            <th>Email</th>
+            <th>Balance</th>
+            <th>Matches</th>
+            <th>Survival Best</th>
+            <th>Joined</th>
+            <th>Adjust Balance</th>
+          </tr>
+        </thead>
+        <tbody id="admin-users-tbody"></tbody>
+      </table>
+      <p class="placeholder-note admin-table-empty" id="admin-users-empty" hidden>No accounts match that search.</p>
+    </div>
+
+    <h2 class="account-page-title admin-section-title">Recent Matches</h2>
+    <p class="placeholder-note admin-intro">
+      The last 50 matches across every real account (bots and anonymous play never produce a row here).
+    </p>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Callsign</th>
+            <th>Mode</th>
+            <th>Result</th>
+            <th>Kills</th>
+            <th>Placement</th>
+            <th>Final Pot</th>
+            <th>Played</th>
+          </tr>
+        </thead>
+        <tbody id="admin-matches-tbody"></tbody>
+      </table>
+      <p class="placeholder-note admin-table-empty" id="admin-matches-empty" hidden>No matches recorded yet.</p>
+    </div>
+
+    <div class="admin-error" id="admin-error" hidden></div>
+  </main>
+
+  <script type="module" src="/src/admin.js"></script>
+</body>
+</html>

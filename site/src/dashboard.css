@@ -1,0 +1,274 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden; /* the whole dashboard is one fixed viewport, not a scrolling page */
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+#stage-root {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+#stage-root canvas { display: block; }
+
+#dashboard-ui[hidden] { display: none; }
+
+.dashboard-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, rgba(10, 11, 13, 0.9), transparent);
+  border-bottom: none;
+}
+.dashboard-nav .nav-inner {
+  max-width: none;
+  padding: 20px 28px;
+  /* 3-column grid instead of nav.css's space-between flex, so the center
+     trapezoid badge is truly centered regardless of how wide the wordmark
+     or logout button are - title and logout stay pinned to the ends. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+.dashboard-nav .nav-actions { justify-self: end; }
+
+/* Trapezoid balance badge, center of the nav - angled sides via clip-path,
+   matching the tactical/HUD shape language rather than a plain rectangle. */
+.nav-trapezoid {
+  justify-self: center;
+  /* Upside-down: wide flat edge on top, narrowing toward the bottom. */
+  clip-path: polygon(0% 0%, 100% 0%, 82% 100%, 18% 100%);
+  background: rgba(21, 23, 27, 0.9);
+  border-top: 1px solid var(--color-border);
+  min-width: 420px;
+  padding: 10px 48px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.nav-trapezoid .label { margin: 0; }
+.nav-trapezoid .stat-value { font-size: 16px; }
+.nav-deposit-btn {
+  margin-top: 4px;
+  padding: 4px 12px;
+  font-size: 10px;
+}
+
+/* Floating HUD docks around the character stage - deliberately sparse, per
+   the "boring details hidden" direction: only Deploy and Loadout sit in
+   the open, everything else (stats/history) is tucked behind a toggle. */
+.dock {
+  position: fixed;
+  z-index: 5;
+  padding: 22px;
+  width: 260px;
+  backdrop-filter: blur(6px);
+  background: rgba(21, 23, 27, 0.75);
+}
+.dock-left {
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.dock-right {
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+}
+.dock-profile {
+  left: 28px;
+  bottom: 28px;
+  width: 280px;
+}
+
+.tab-row {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 18px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.tab-btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+.tab-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* Battle Royale is the default/most prominent mode - shown as its own
+   full-width row rather than competing for space in the tab strip below,
+   but it's a real, clickable member of the same one-active-at-a-time
+   group as Co-op/Private/Survival (see dashboard.js's wirePlayModeSelector)
+   - active/inactive coloring comes from the shared .tab-btn.active rule,
+   this only sets the larger size/full-width layout. */
+.playmode-main {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.playmode-main.active {
+  background: rgba(255, 106, 61, 0.12);
+}
+.playmode-secondary { margin-bottom: 4px; }
+.playmode-secondary .tab-btn { font-size: 11px; padding: 8px 6px; }
+
+.eyebrow.dock-subsection { margin-top: 18px; }
+
+.soon-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  padding: 1px 5px;
+}
+
+.deploy-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  text-align: center;
+  text-decoration: none;
+  transition: transform 150ms ease-out, box-shadow 200ms ease-out;
+}
+.deploy-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(255, 106, 61, 0.5);
+}
+
+.loadout-slot {
+  width: 100%;
+  padding: 24px 14px;
+  background: var(--color-panel-alt);
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-secondary);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
+}
+.loadout-slot:hover { border-color: var(--color-accent); }
+.loadout-hint { margin: 10px 0 0; font-size: 12px; }
+
+/* Character/Weapon pick - a 2x2 grid of option buttons, one group per
+   loadout tab (see dashboard.js's wireLoadoutSelector - only one group is
+   visible at a time, matching whichever tab is active). */
+.loadout-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.loadout-option {
+  padding: 14px 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, color 150ms ease-out, background 150ms ease-out;
+}
+.loadout-option:hover { border-color: var(--color-accent); }
+.loadout-option.active {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  background: rgba(255, 106, 61, 0.12);
+}
+
+.profile-mini {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.profile-mini-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+.profile-mini-level {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.stats-toggle {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+.stats-toggle:hover { border-color: var(--color-accent); color: var(--color-text-primary); }
+
+.stats-panel { margin-top: 16px; }
+.stats-panel[hidden] { display: none; }
+
+.mini-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mini-stat { display: flex; flex-direction: column; gap: 4px; }
+.mini-stat .stat-value { font-size: 16px; }
+
+.mini-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+}
+.mini-history-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+}
+.mini-history-row .success { color: var(--color-success); }
+.mini-history-row .danger { color: var(--color-danger); }
+/* .placeholder-note base styles now live in theme.css (shared across the whole site). */
+
+@media (max-width: 1000px) {
+  .dock-left, .dock-right {
+    position: fixed;
+    top: auto;
+    bottom: 100px;
+    transform: none;
+    width: calc(50% - 40px);
+  }
+  .dock-left { left: 16px; }
+  .dock-right { right: 16px; }
+  .dock-profile { left: 16px; right: 16px; width: auto; bottom: 16px; }
+}

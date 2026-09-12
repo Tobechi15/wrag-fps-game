@@ -1,0 +1,271 @@
+#lobby-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+/* An ID selector like #lobby-screen above outranks the browser's built-in
+   [hidden] { display: none } rule (attribute selectors have lower
+   specificity than ID selectors), so setting the `hidden` attribute in JS
+   would otherwise be silently ignored and the lobby would stay visible.
+   This rule matches the same ID plus the attribute, so it wins instead. */
+#lobby-screen[hidden] {
+  display: none;
+}
+
+.lobby {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lobby-header {
+  text-align: center;
+  margin-bottom: 4px;
+}
+.lobby-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+}
+.lobby-subtitle {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* Survival's holding message - shown only briefly while its instant solo
+   match spins up server-side (see lobbyScreen.js's show()). */
+.survival-panel {
+  padding: 24px 14px;
+  text-align: center;
+}
+.survival-note {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Private mode's room code create/join form - swapped in for the
+   queue/countdown panels (see lobbyScreen.js's applyModeVisibility).
+   Same recurring bug as #lobby-screen[hidden] above: each of these sets
+   its own `display` at the same specificity as the browser's default
+   [hidden]{display:none} rule, and an AUTHOR stylesheet rule wins over a
+   UA one at equal specificity - so without an explicit ID+[hidden]
+   override, JS setting .hidden = true on these was silently ignored and
+   the element stayed visible in every mode, not just Private. This is
+   exactly the bug that shipped: the room-code form was showing regardless
+   of the selected mode. */
+.private-panel {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#private-panel[hidden] {
+  display: none;
+}
+.private-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#private-actions[hidden] {
+  display: none;
+}
+.private-stake-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#room-stake-input {
+  padding: 10px 12px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.private-join {
+  display: flex;
+  gap: 8px;
+}
+#room-code-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+#room-code-input::placeholder {
+  color: var(--color-text-secondary);
+  letter-spacing: 0.05em;
+}
+.room-error {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-danger);
+}
+.room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#room-info[hidden] {
+  display: none;
+}
+.room-code-display {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+.room-pool-display {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-success);
+  text-align: center;
+}
+/* No `display` set above, so no [hidden]-override is strictly needed here
+   (see the extensive comment near #private-panel) - added anyway as cheap
+   insurance against a future style adding one without remembering the
+   gotcha. */
+#room-pool-display[hidden] {
+  display: none;
+}
+
+/* Stake hierarchy panel - deliberately the most visually prominent block,
+   per the design brief ("the stake should be visually important"). Now
+   also hidden entirely for Private/Survival (see lobbyScreen.js's
+   applyModeVisibility) - same [hidden]-override need as #private-panel
+   above, since this sets its own `display` too. */
+.stake-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+}
+#stake-panel[hidden] {
+  display: none;
+}
+.stake-panel .stat {
+  background: var(--color-panel);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+.unit {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.tier-select {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+#tier-select[hidden] {
+  display: none;
+}
+.tier-btn {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.tier-btn.active {
+  border-color: var(--color-accent);
+}
+.tier-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.tier-stake {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.queue-panel {
+  padding: 14px;
+}
+.queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.queue-count {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+.queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+.queue-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+.queue-name { flex: 1; }
+.queue-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.countdown-panel {
+  padding: 14px;
+  text-align: center;
+}
+.countdown {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.05em;
+}
+.countdown-note {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}

@@ -1,0 +1,65 @@
+/* Shared design tokens for the tactical/HUD look described in the Phase 2
+   design brief: dark charcoal base, restrained red/orange (danger) and
+   green (secured/success) accents, condensed display font for headings,
+   monospace for anything numeric. `site/` (the marketing site, built later
+   in Part B) should reuse these same tokens for visual consistency. */
+:root {
+  --color-bg: #0a0b0d;
+  --color-panel: #15171b;
+  --color-panel-alt: #1b1e23;
+  --color-border: #2a2d33;
+  --color-text-primary: #f2f2f2;
+  --color-text-secondary: #888e99;
+  --color-danger: #ff4433;
+  --color-success: #22c55e;
+  --color-accent: #ff6a3d;
+
+  --font-display: 'Chakra Petch', sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Small uppercase label, used above every stat/value in HUD-style panels. */
+.label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* A bordered dark panel - the base building block for lobby/dashboard UI. */
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.stat-value.danger { color: var(--color-danger); }
+.stat-value.success { color: var(--color-success); }
+
+.btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel-alt);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #0a0b0d;
+}

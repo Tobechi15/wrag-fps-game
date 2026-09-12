@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WRAG — Log In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/src/theme.css" />
+  <link rel="stylesheet" href="/src/nav.css" />
+  <link rel="stylesheet" href="/src/auth.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="wordmark" href="/">WRAG</a>
+    </div>
+  </header>
+
+  <main class="auth-page">
+    <div class="auth-glow" aria-hidden="true"></div>
+    <div class="auth-card panel">
+      <h1 class="auth-title">Log In</h1>
+      <form class="auth-form" id="login-form">
+        <label class="auth-field">
+          <span class="label">Email</span>
+          <input type="email" name="email" required autocomplete="email" />
+        </label>
+        <label class="auth-field">
+          <span class="label">Password</span>
+          <input type="password" name="password" required autocomplete="current-password" />
+        </label>
+        <div class="auth-error" id="auth-error" hidden></div>
+        <button class="btn btn-primary auth-submit" type="submit">Log In</button>
+      </form>
+      <p class="auth-switch">No account? <a href="/signup.html">Sign up</a></p>
+    </div>
+  </main>
+
+  <script type="module" src="/src/login.js"></script>
+</body>
+</html>

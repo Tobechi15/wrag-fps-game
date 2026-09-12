@@ -1,0 +1,150 @@
+/* Admin dashboard (house ledger) - reuses account.css's page/card shell
+   (.account-page, .account-card, .placeholder-note) for visual consistency
+   with the rest of the site, just with its own grid layout instead of the
+   fixed profile/wallet/security areas. */
+.admin-intro {
+  margin: -8px 0 28px;
+  max-width: 640px;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.admin-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Fees Collected / Profit get a slightly stronger visual weight (accent
+   border) than the four supporting breakdown numbers - they're the two
+   figures the operator actually asked to see at a glance. */
+.admin-highlight {
+  border-color: var(--color-accent);
+}
+
+.admin-big-stat {
+  font-size: 30px;
+}
+
+.admin-error {
+  margin-top: 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .admin-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Live Server / Accounts / Recent Matches sections - added below the
+   original house-ledger grid, same card shell throughout. */
+.admin-section-title {
+  font-size: 22px;
+  margin: 48px 0 12px;
+}
+.admin-live-grid {
+  grid-template-columns: repeat(6, 1fr);
+}
+@media (max-width: 1100px) {
+  .admin-live-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 600px) {
+  .admin-live-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.admin-search-input {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: 16px 0;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 10px 14px;
+}
+.admin-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Wrapped in its own scroll container (not the page body) so a table wider
+   than the viewport scrolls in place on a small screen instead of blowing
+   out the page's own horizontal layout. */
+.admin-table-wrap {
+  overflow-x: auto;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.admin-table th, .admin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.admin-table th {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.admin-cell-mono {
+  font-family: var(--font-mono);
+}
+.admin-table-empty {
+  padding: 16px 0;
+}
+
+.admin-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+
+.admin-balance-form {
+  display: flex;
+  gap: 8px;
+}
+.admin-balance-input {
+  width: 90px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.admin-balance-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.admin-balance-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+}

@@ -1,0 +1,102 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+/* Base .nav/.nav-inner/.wordmark styles now live in the shared nav.css. */
+
+.auth-page {
+  position: relative;
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  overflow: hidden;
+}
+.auth-glow {
+  position: absolute;
+  top: 20%; left: 50%;
+  width: 50vw; height: 50vw;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 106, 61, 0.18), transparent 70%);
+  filter: blur(70px);
+  pointer-events: none;
+  animation: auth-glow-drift 9s ease-in-out infinite;
+}
+@keyframes auth-glow-drift {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}
+
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+}
+.auth-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 24px;
+  text-align: center;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-field input {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 12px 14px;
+  border-radius: 0;
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(255, 106, 61, 0.15);
+}
+.auth-error {
+  background: rgba(255, 68, 51, 0.1);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+.auth-submit {
+  width: 100%;
+  padding: 14px;
+  margin-top: 4px;
+  transition: transform 150ms ease-out, box-shadow 200ms ease-out;
+}
+.auth-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(255, 106, 61, 0.5);
+}
+.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.auth-switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 20px 0 0;
+}
+.auth-switch a { color: var(--color-accent); text-decoration: none; }
+.auth-switch a:hover { text-decoration: underline; }

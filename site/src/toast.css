@@ -1,0 +1,22 @@
+/* Shared with toast.js - linked from any page that uses [data-placeholder]
+   elements (landing page, dashboard). */
+.placeholder-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 12px);
+  max-width: 90vw;
+  padding: 12px 20px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  opacity: 0;
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+  pointer-events: none;
+  z-index: 100;
+}
+.placeholder-toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

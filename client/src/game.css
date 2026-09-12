@@ -1,0 +1,600 @@
+/* HUD overlay for the in-match game screen. Migrated from index.html's old
+   inline <style> block now that the page has multiple screens. */
+
+#game-screen canvas { display: block; }
+
+#click-to-play {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(10, 11, 13, 0.6);
+  cursor: pointer;
+  user-select: none;
+}
+#click-to-play.hidden { display: none; }
+
+/* Small fixed crosshair at screen center, blend-mode so it stays visible
+   against light or dark backgrounds without needing its own color logic. */
+#crosshair {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 6px; height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: white;
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+
+/* Shared "tactical HUD panel" base - a dark diagonal-sheen gradient instead
+   of a flat fill, a soft outer drop shadow for lift off the 3D scene behind
+   it, and an inset top highlight for a bit of surface depth - all static
+   (recomputed once per state change, e.g. a health-color swap, never per
+   frame), so this costs nothing ongoing despite looking layered. Position
+   stays on each panel's own #id rule (varies per panel); this only carries
+   the shared look. Corner brackets (a small viewfinder-style accent) are
+   also per-#id below, since which two corners they sit on depends on which
+   corner that panel's own clip-path already cuts. */
+#pot-display,
+#health-display {
+  position: absolute;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 6px 18px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+#pot-display::before,
+#pot-display::after,
+#health-display::before,
+#health-display::after {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+}
+
+/* Small uppercase header row above a panel's stats, with a colored
+   underline rule to visually separate it - the "Match Points" / "Vitals"
+   label at the top of each card. */
+.hud-panel-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  padding-bottom: 7px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Pot display: still just the fake/local value (see targets.js / shooting.js
+   comments) - no real money involved. Angled top-right corner cut (clip-
+   path, effectively free) with corner brackets on the two UNCUT corners
+   (top-left/bottom-right) so they read as a deliberate frame rather than
+   clashing with the cut. A left accent bar colored per-row (danger/success)
+   marks AT RISK (unsecured, lost on death) vs SECURED (locked in by a
+   previous bank/extraction this match - survives death, see pot.js). */
+#pot-display {
+  top: 16px; left: 16px;
+  padding: 10px 20px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+#pot-display::before { top: -1px; left: -1px; border-top: 2px solid var(--color-accent); border-left: 2px solid var(--color-accent); }
+#pot-display::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--color-accent); border-right: 2px solid var(--color-accent); }
+.pot-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--color-border);
+}
+.pot-row.at-risk { border-left-color: var(--color-danger); position: relative; }
+.pot-row.secured { border-left-color: var(--color-success); }
+.pot-row .label {
+  min-width: 60px;
+}
+#pot-display .stat-value {
+  font-size: 21px;
+  font-weight: 700;
+  margin-left: auto;
+  text-shadow: 0 0 6px currentColor;
+}
+
+/* "+N" popup on a point gain (a kill/hit payout - see pot.js's setAtRisk) -
+   a brief float-up-and-fade, the same restrained-motion budget as
+   #hit-flash/#respawn-toast elsewhere in this file. Positioned relative to
+   the AT RISK row (where the gain actually lands) rather than the whole
+   panel. Starts opacity 0 / no animation - pot.js toggles the .pop class to
+   fire it, and re-triggers by removing+re-adding the class (forcing a
+   reflow in between) so a fast double-kill restarts the animation cleanly
+   instead of the second popup being silently ignored mid-animation. */
+.pot-popup {
+  position: absolute;
+  top: -2px; right: -6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-success);
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.65);
+  opacity: 0;
+  pointer-events: none;
+}
+.pot-popup.pop {
+  animation: pot-popup-float 750ms ease-out;
+}
+@keyframes pot-popup-float {
+  0% { opacity: 0; transform: translateY(6px) scale(0.9); }
+  18% { opacity: 1; transform: translateY(-2px) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-24px) scale(1); }
+}
+
+/* Vitals card: health bar + (mode-dependent) lives pips, bottom-left,
+   standard FPS HUD placement. Same panel treatment as the pot display,
+   mirrored corner-cut (top-left instead of top-right) so the two don't
+   look like copy-pasted twins, with brackets on ITS two uncut corners
+   (top-right/bottom-left). The health bar keeps its segmented texture (a
+   static repeating background-image, only recomputed on width change) for
+   a "tactical meter" feel over one smooth fill. */
+#health-display {
+  bottom: 16px; left: 16px;
+  padding: 10px 18px 12px;
+  min-width: 172px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 14px);
+}
+#health-display::before { top: -1px; right: -1px; border-top: 2px solid var(--color-text-secondary); border-right: 2px solid var(--color-text-secondary); }
+#health-display::after { bottom: -1px; left: -1px; border-bottom: 2px solid var(--color-text-secondary); border-left: 2px solid var(--color-text-secondary); }
+.health-bar {
+  width: 100%;
+  height: 11px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.health-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--color-success);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.25) 0,
+    rgba(0, 0, 0, 0.25) 1px,
+    transparent 1px,
+    transparent calc(100% / 10)
+  );
+  transition: width 200ms ease-out, background 200ms ease-out;
+}
+.health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#health-label {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+/* Lives row - Coop only (see gameScreen.js's MAX_LIVES_BY_MODE); hidden via
+   [hidden] elsewhere, so needs the usual explicit override since
+   .lives-row's own `display: flex` would otherwise win the specificity tie
+   (see project memory on this exact recurring bug pattern). Each pip is a
+   small rotated-square "diamond" - lit/glowing red for a life still held,
+   dim grey for one already spent (see health.js's setLives). */
+.lives-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+.lives-row[hidden] { display: none; }
+.lives-pips {
+  display: flex;
+  gap: 7px;
+}
+.life-pip {
+  width: 10px;
+  height: 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  transform: rotate(45deg);
+  transition: background 200ms ease-out, box-shadow 200ms ease-out;
+}
+.life-pip.active {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  box-shadow: 0 0 6px rgba(255, 68, 51, 0.75);
+}
+.life-pip.lost {
+  opacity: 0.45;
+}
+
+/* Brief red vignette when a bot's shot connects - restrained, per the
+   design brief's "avoid excessive motion" guidance. Toggled by adding/
+   removing .active in JS (gameScreen.js's flashHitDamage). */
+#hit-flash {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(255, 68, 51, 0.35) 100%);
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+#hit-flash.active {
+  opacity: 1;
+  transition: opacity 0ms;
+}
+
+/* Brief "you died but the match keeps going" toast - Coop/Private
+   respawns only (see gameScreen.js's flashRespawnToast). A plain opacity
+   fade, same restrained-motion approach as #hit-flash - no blur/glow/
+   animation, consistent with the HUD performance pass. */
+#respawn-toast {
+  position: absolute;
+  top: 40%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 20px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-danger);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-danger);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  pointer-events: none;
+}
+#respawn-toast.active {
+  opacity: 1;
+}
+
+/* A localized dim shown directly behind the win/failure banner below, for
+   the whole delay before cutting to the post-match screen (see
+   gameScreen.js's flashWinBanner/flashFailureBanner) - NOT full-screen
+   (that read as the whole view going dark/broken) - just a soft radial
+   vignette centered on the banner itself, dark enough right behind the
+   text to make the pause register without blacking out the rest of the
+   3D view around it. */
+#match-end-dim {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(ellipse 340px 220px at 50% 38%, rgba(5, 5, 7, 0.75) 0%, rgba(5, 5, 7, 0) 70%);
+  opacity: 0;
+  transition: opacity 250ms ease-out;
+  pointer-events: none;
+}
+#match-end-dim.active {
+  opacity: 1;
+}
+
+/* A brief victory banner shown for a clear single-winner ending
+   ('last-standing'/'team-victory' - see gameScreen.js's flashWinBanner)
+   BEFORE cutting to the post-match screen, so a win actually registers as
+   a moment instead of jumping straight to a stats screen. Bigger/brighter
+   than #respawn-toast (a real "you did it" beat, not just a status
+   update) but the same restrained opacity-fade motion budget as every
+   other HUD flash in this file. */
+#win-banner {
+  position: absolute;
+  top: 38%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 36px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-success);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 40px rgba(34, 197, 94, 0.25);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-success);
+  text-shadow: 0 0 16px rgba(34, 197, 94, 0.6);
+  opacity: 0;
+  transition: opacity 250ms ease-out;
+  pointer-events: none;
+}
+#win-banner.active {
+  opacity: 1;
+}
+
+/* Same treatment as #win-banner, danger-colored - shown for the losing
+   ending ('eliminated' - see gameScreen.js's flashFailureBanner) before
+   cutting to the post-match screen, so a loss registers as a moment same
+   as a win does, not just an instant cut. */
+#failure-banner {
+  position: absolute;
+  top: 38%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 36px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-danger);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 68, 51, 0.25);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-danger);
+  text-shadow: 0 0 16px rgba(255, 68, 51, 0.6);
+  opacity: 0;
+  transition: opacity 250ms ease-out;
+  pointer-events: none;
+}
+#failure-banner.active {
+  opacity: 1;
+}
+
+/* The respawn countdown - shown the instant a Coop/Private death happens
+   (see gameScreen.js's 'respawn-countdown' handler) and hidden again once
+   the actual 'respawn' message arrives ~RESPAWN_DELAY_SECONDS later (see
+   server/.env.example). Stays up the WHOLE delay (no auto-fade like the
+   other banners here - its own dismissal is message-driven, not timed),
+   with a ticking number so the wait itself reads as active feedback
+   instead of a dead screen. Toggled via [hidden] in JS - explicit
+   override below since this sets its own `display` (see this project's
+   documented recurring `[hidden]`-vs-class-`display` bug pattern). */
+#respawn-countdown-banner {
+  position: absolute;
+  top: 38%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-danger);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 68, 51, 0.25);
+  pointer-events: none;
+}
+#respawn-countdown-banner[hidden] {
+  display: none;
+}
+#respawn-countdown-label {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-danger);
+  text-shadow: 0 0 12px rgba(255, 68, 51, 0.5);
+}
+#respawn-countdown-value {
+  font-family: var(--font-mono);
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+/* Extraction progress indicator - shown only while the local player is
+   estimated to be standing in the zone (see extraction.js's
+   createExtractionTracker; purely cosmetic, never authoritative - the
+   server's own 'banked' message is still what actually pays out). Toggled
+   via .hidden in JS - explicit [hidden] override below since this sets its
+   own `display` (see lobbyScreen.css's extensive comment on why that's
+   needed for every element in this codebase toggled this way). */
+#extraction-status {
+  position: absolute;
+  bottom: 90px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-success);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+#extraction-status[hidden] {
+  display: none;
+}
+#extraction-status-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-success);
+}
+.extraction-progress-track {
+  width: 160px;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.extraction-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--color-success);
+  transition: width 100ms linear;
+}
+
+/* Coop's live "versus bar" - a top-center banner spanning most of the
+   screen width, modeled on the classic team-shooter HUD: your squad's
+   icons lined up from the left edge, the enemy's from the right edge, and
+   the live team score sits between them (see match.js's getTeamScore/
+   broadcastTeamStatus for where the numbers come from - a running kill
+   tally per team, updated on the same broadcasts that already fire on
+   every death/respawn/disconnect). Hidden entirely outside Coop - see
+   gameScreen.js's 'team-status' handler, only ever sent for this mode. */
+#coop-status-bar {
+  position: absolute;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  width: min(94%, 820px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 20px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 6px 18px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+#coop-status-bar[hidden] {
+  display: none;
+}
+
+.versus-bar-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.versus-bar-ally { justify-content: flex-start; }
+.versus-bar-enemy { justify-content: flex-end; }
+
+/* The center score - color-coded to match each side's icon border (green
+   ally / red enemy) so the two numbers read as "yours vs. theirs" without
+   needing text labels. */
+.versus-bar-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+}
+.versus-bar-score-value {
+  min-width: 1.3ch;
+  text-align: center;
+  color: var(--color-success);
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.55);
+}
+.versus-bar-score-value.enemy {
+  color: var(--color-danger);
+  text-shadow: 0 0 8px rgba(255, 68, 51, 0.55);
+}
+.versus-bar-score-sep {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+}
+
+/* One player's icon + lives badge - a small circle with their initials
+   (no real avatar art exists in this project, see remotePlayers.js's
+   capsule-only character rendering) rather than a name/row, so a full
+   squad fits compactly across the top of the screen. Ally circles are
+   green-bordered, enemy red - a bot gets a dashed border instead of solid
+   as the one visual difference from a real player's chip, and a downed
+   (0-lives-remaining-right-now) member dims to near-invisible rather than
+   disappearing outright, so the slot itself stays visible as a reminder
+   they're expected back (Coop bots/players both respawn - see modes.js). */
+.player-chip {
+  position: relative;
+  display: flex;
+}
+.player-chip-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  background: var(--color-panel-alt);
+  border: 2px solid var(--color-success);
+  color: var(--color-text-primary);
+  transition: opacity 200ms ease-out;
+}
+.versus-bar-enemy .player-chip-avatar {
+  border-color: var(--color-danger);
+}
+.player-chip.bot .player-chip-avatar {
+  border-style: dashed;
+}
+.player-chip.down .player-chip-avatar {
+  opacity: 0.35;
+}
+.player-chip-lives {
+  position: absolute;
+  bottom: -4px; right: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+/* The classic battle-royale "X remaining" HUD readout, plus a running
+   kill count - Versus/Private only (see match.js's showRemainingCount and
+   gameScreen.js's SHOW_MATCH_STATUS_BAR; mutually exclusive with
+   #coop-status-bar above - never both shown at once, since Coop already
+   has its own richer per-member status). Same top-center slot/shape
+   language as #coop-status-bar, just narrower - two stats, not a full
+   roster. */
+#match-status-bar {
+  position: absolute;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 22px;
+  background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 6px 18px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+#match-status-bar[hidden] {
+  display: none;
+}
+.match-status-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.match-status-stat .stat-value {
+  font-size: 20px;
+  color: var(--color-text-primary);
+}
+.match-status-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border);
+}
