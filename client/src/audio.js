@@ -76,6 +76,38 @@ function shuffle(array) {
   return result;
 }
 
+// Warms the browser's HTTP cache for one audio file - a throwaway element,
+// never played, just loaded far enough to know it's actually usable.
+// Resolves on 'canplaythrough' (loaded/buffered) or 'error' (a missing/
+// broken file shouldn't block the match from starting, same tolerance as
+// every other asset loader in this project - it would just play silently
+// wrong later, same as it does today with no preloading at all).
+function preloadUrl(url) {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    audio.addEventListener('canplaythrough', () => resolve(), { once: true });
+    audio.addEventListener('error', () => resolve(), { once: true });
+    audio.src = url;
+    audio.load();
+  });
+}
+
+// Every unique SFX/music URL, deduplicated (a few names above share the
+// same file, e.g. gunshotPlayer/gunshotRemote) - see gameScreen.js's
+// matchAssetsReady, which waits on this alongside every other asset type
+// before revealing a match, so the match-start stinger/music (and every
+// sound afterward) actually play the instant they're triggered instead of
+// stuttering on a cold fetch the first time each one is used.
+export function preloadAudio() {
+  const urls = new Set();
+  for (const source of Object.values(SFX_URLS)) {
+    if (Array.isArray(source)) source.forEach((url) => urls.add(url));
+    else urls.add(source);
+  }
+  for (const url of MUSIC_PLAYLIST) urls.add(url);
+  return Promise.all(Array.from(urls).map(preloadUrl));
+}
+
 export function createAudioManager() {
   let musicEl = null;
   let playlist = [];

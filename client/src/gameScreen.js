@@ -14,7 +14,7 @@ import { createProps } from './props.js';
 import { createNature } from './nature.js';
 import { createShootEffects } from './shootEffects.js';
 import { createArms } from './arms.js';
-import { createAudioManager } from './audio.js';
+import { createAudioManager, preloadAudio } from './audio.js';
 import { isTouchDevice, createTouchControls } from './touchControls.js';
 
 const WIN_END_DELAY_MS = 2000; // lets the win banner actually be read before cutting to the post-match screen - just under WIN_BANNER_MS's own fade-out
@@ -196,8 +196,12 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   const armsReady = createArms(weapon); // parents itself under the weapon's own group - see arms.js/weapon.js's attachToWeapon
   const shootEffects = createShootEffects(scene);
   const audio = createAudioManager();
-  audio.playSfx('matchStart');
-  audio.playMusic();
+  const audioReady = preloadAudio();
+  // matchStart/playMusic now fire once matchAssetsReady resolves below
+  // (right as the loading screen actually reveals the map), not here -
+  // starting them immediately used to mean the stinger/music played
+  // UNDER the loading screen, disconnected from what the player could
+  // actually see.
 
   createMap(scene); // procedural geometry, no loader - always instant, nothing to await here
   const propsReady = createProps(scene);
@@ -206,15 +210,15 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
 
   // Resolves once every loader-based asset for THIS match screen has
   // actually finished (or failed, tolerantly - see each function's own
-  // comment) - the player's own weapon/arms, decorative props/nature, and
-  // (in case a very fast match, e.g. a Private room the host starts solo,
-  // beat app.js's page-load preload) every character variant + the
-  // remote-player weapon template. Everything here already runs the
-  // instant startGame() is called, same as before this existed - this
-  // promise doesn't delay any of that, it only delays REVEALING it (see
-  // matchLoadingScreenEl below), so nothing about network/animate timing
-  // changes; a player just never sees a placeholder gun or props popping
-  // in after the fact.
+  // comment) - the player's own weapon/arms, decorative props/nature,
+  // every SFX/music file, and (in case a very fast match, e.g. a Private
+  // room the host starts solo, beat app.js's page-load preload) every
+  // character variant + the remote-player weapon template. Everything
+  // here already runs the instant startGame() is called, same as before
+  // this existed - this promise doesn't delay any of that, it only delays
+  // REVEALING it (see matchLoadingScreenEl below), so nothing about
+  // network/animate timing changes; a player just never sees a
+  // placeholder gun or props popping in after the fact.
   // matchLoadingScreenEl is a PERSISTENT element, reused by whichever match
   // is running next - if this match ends (or this player leaves it) before
   // its own assets finish loading, the stale .then() below must not fire
@@ -222,10 +226,13 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // flips this so the check right before hiding it can tell the two apart.
   let stopped = false;
   const matchAssetsReady = Promise.all([
-    weapon.ready, armsReady, propsReady, natureReady, preloadCharacterModels(), preloadRemoteWeaponModel(),
+    weapon.ready, armsReady, propsReady, natureReady, audioReady, preloadCharacterModels(), preloadRemoteWeaponModel(),
   ]);
   matchAssetsReady.then(() => {
-    if (!stopped) matchLoadingScreenEl.hidden = true;
+    if (stopped) return;
+    matchLoadingScreenEl.hidden = true;
+    audio.playSfx('matchStart');
+    audio.playMusic();
   });
   const potTracker = createPotTracker(
     gameScreenElement.querySelector('#pot-secured'),
