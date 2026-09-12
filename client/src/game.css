@@ -91,8 +91,8 @@
 #reload-indicator {
   position: absolute;
   top: 50%; left: 50%;
-  width: 56px; height: 56px;
-  margin: 26px 0 0 -28px; /* centered horizontally, offset down below the crosshair */
+  width: 76px; height: 76px;
+  margin: 26px 0 0 -38px; /* centered horizontally, offset down below the crosshair */
   pointer-events: none;
 }
 #reload-indicator[hidden] { display: none; }
@@ -100,6 +100,22 @@
   width: 100%;
   height: 100%;
   transform: rotate(-90deg); /* so the fill sweeps starting from straight up, not the SVG's default 3-o'clock start */
+}
+/* "RELOADING", laid across the middle of the wheel - the svg above is
+   rotated to make the FILL sweep start from the top, but this label is a
+   separate sibling element (not inside the rotated <svg>), so it stays
+   upright and horizontal rather than inheriting that rotation. */
+#reload-label {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  color: var(--color-text-primary);
 }
 .reload-ring-bg {
   fill: none;
