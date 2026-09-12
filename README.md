@@ -134,7 +134,22 @@ Express API on one shared port, see `server/src/index.js`), hosted on
 Render or similar. Needs `DATABASE_URL` (a real Postgres instance),
 `SESSION_SECRET`, and `NODE_ENV=production` set in the host's own
 environment config — see `server/.env.example` for every var and what it
-does. Render assigns `PORT` itself; never hardcode it.
+does. Render assigns `PORT` itself; never hardcode it. `NODE_ENV=production`
+also switches on SSL for the Postgres connection (`server/src/db/client.js`) -
+almost every hosted Postgres rejects a plaintext connection outright, so
+this must actually be set for signup/login to work at all, not just for
+the cookie security it was originally added for.
+
+**Before the first signup/login will work, run `schema.sql` against the
+hosted database once** (it's never applied automatically) - same as the
+local `docker exec ... psql ... < server/src/db/schema.sql` step above,
+just pointed at the hosted DB's EXTERNAL connection string (not the
+internal one your server's own `DATABASE_URL` uses) instead of the local
+container:
+```
+docker run --rm -i postgres:16 psql "<EXTERNAL_DATABASE_URL>" < server/src/db/schema.sql
+```
+Safe to re-run any time the schema changes, same as locally.
 
 **Site and client** (`site/`, `client/`) — both plain static Vite builds,
 each its own Vercel project with **Root Directory** set to `site` or

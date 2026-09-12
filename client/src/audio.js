@@ -38,6 +38,10 @@ const SFX_URLS = {
   // immediate in-the-moment reactions to how THIS specific match ended;
   // this is just "the match is over, here are your results" either way.
   gameOver: '/audio/game-over.mp3',
+  // The dry-fire click when trying to shoot with an empty magazine - see
+  // shooting.js's onDryFire (fires instead of gunshotPlayer, never both,
+  // whenever fire() is called while a reload is already in progress).
+  emptyGunshot: '/audio/empty-gunshot.mp3',
 };
 const SFX_VOLUMES = {
   gunshotPlayer: 0.6,
@@ -51,6 +55,7 @@ const SFX_VOLUMES = {
   hurt: 0.5,
   dying: 0.55,
   beep: 0.4,
+  emptyGunshot: 0.5,
 };
 // A real playlist, not one track on repeat - cycles through every track in
 // order (wrapping back to the first once the last one ends) via the

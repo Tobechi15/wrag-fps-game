@@ -487,6 +487,32 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     },
   });
 
+  // Magazine/reload indicator - a small radial progress ring just below the
+  // crosshair (see game.css's #reload-indicator), driven by shooting.js's
+  // onReloadStart/onReloadEnd. The fill animation is a plain CSS
+  // transition on stroke-dashoffset: reset it instantly (transition-
+  // duration: 0ms) back to fully-empty, force a reflow so that reset
+  // actually applies as its own frame instead of being coalesced away by
+  // the browser, then re-enable the transition and set the fill target -
+  // the standard trick for restarting a CSS transition from the same
+  // element on repeated triggers (every subsequent reload), not just the
+  // first one.
+  const reloadIndicatorEl = gameScreenElement.querySelector('#reload-indicator');
+  const reloadRingFillEl = gameScreenElement.querySelector('#reload-ring-fill');
+  const RELOAD_RING_CIRCUMFERENCE = 113.097; // 2 * PI * 18 - must match index.html's <circle r="18">
+  reloadIndicatorEl.hidden = true; // persistent element reused across matches - see the win/failure/dim reset elsewhere for why this matters
+  function startReloadAnimation(durationMs) {
+    reloadIndicatorEl.hidden = false;
+    reloadRingFillEl.style.transitionDuration = '0ms';
+    reloadRingFillEl.style.strokeDashoffset = String(RELOAD_RING_CIRCUMFERENCE);
+    void reloadRingFillEl.getBoundingClientRect(); // force the reflow described above
+    reloadRingFillEl.style.transitionDuration = `${durationMs}ms`;
+    reloadRingFillEl.style.strokeDashoffset = '0';
+  }
+  function endReloadAnimation() {
+    reloadIndicatorEl.hidden = true;
+  }
+
   const muzzleWorldPosition = new THREE.Vector3(); // reused each shot so onFire doesn't allocate
   const shootingSystem = createShootingSystem(camera, targets, canvas, {
     onLocalHit: (hitTarget) => flashTargetHit(hitTarget),
@@ -498,6 +524,12 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
       shootEffects.triggerShot(weapon.getMuzzleWorldPosition(muzzleWorldPosition), direction);
       audio.playSfx('gunshotPlayer');
     },
+    // Tried to fire with an empty magazine (mid-reload) - the classic dry-
+    // fire click instead of a real gunshot, no shot sent to the server at
+    // all (see shooting.js's fire()).
+    onDryFire: () => audio.playSfx('emptyGunshot'),
+    onReloadStart: (durationMs) => startReloadAnimation(durationMs),
+    onReloadEnd: () => endReloadAnimation(),
   });
 
   // Mobile touch controls - only ever constructed when isTouchDevice()

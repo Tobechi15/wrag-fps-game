@@ -77,6 +77,54 @@
   pointer-events: none;
 }
 
+/* Small circular "reloading" indicator, just below the crosshair - shown
+   while shooting.js's magazine is empty and refilling (see gameScreen.js's
+   onReloadStart/onReloadEnd). Purely a radial progress ring: an SVG circle
+   whose stroke-dashoffset animates from fully-empty to fully-filled over
+   the exact reload duration via a CSS transition gameScreen.js triggers
+   (see its own comment - the duration lives in shooting.js, not hardcoded
+   here, so there's one source of truth for it). Toggled via the `hidden`
+   PROPERTY - the explicit [hidden] override is this project's usual
+   recurring gotcha guard (see #match-loading-screen's comment above for
+   the full explanation), needed here because this rule sets its own
+   `display`. */
+#reload-indicator {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 56px; height: 56px;
+  margin: 26px 0 0 -28px; /* centered horizontally, offset down below the crosshair */
+  pointer-events: none;
+}
+#reload-indicator[hidden] { display: none; }
+#reload-indicator svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* so the fill sweeps starting from straight up, not the SVG's default 3-o'clock start */
+}
+.reload-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 4;
+}
+.reload-ring-fill {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  /* gameScreen.js only ever sets transition-DURATION inline (to match
+     shooting.js's reload time exactly) - the property/timing-function
+     stay fixed here, since without transition-property nothing would
+     actually animate no matter what duration JS sets. */
+  transition-property: stroke-dashoffset;
+  transition-timing-function: linear;
+  /* 2 * PI * r, r=18 (see index.html's <circle r="18">) - the ring's total
+     drawable length. Dashoffset starts equal to this (nothing drawn/fully
+     "empty") and gameScreen.js transitions it to 0 (fully drawn) over the
+     reload duration. */
+  stroke-dasharray: 113.097;
+  stroke-dashoffset: 113.097;
+}
+
 /* Shared "tactical HUD panel" base - a dark diagonal-sheen gradient instead
    of a flat fill, a soft outer drop shadow for lift off the 3D scene behind
    it, and an inset top highlight for a bit of surface depth - all static
