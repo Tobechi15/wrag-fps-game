@@ -12,6 +12,13 @@
 const AUTO_ROTATE_TIP_VISIBLE_MS = 4000;
 const AUTO_ROTATE_TIP_FADE_MS = 700;
 
+// A plain look-drag felt sluggish for tracking/flicking onto a target while
+// actively moving (the joystick held off-center) - this boosts only the
+// horizontal (yaw/"sideway turning") component of touch look-drag while
+// moving, leaving vertical look and the mouse/keyboard path (player.js's
+// own onMouseMove -> applyLookDelta) completely untouched.
+const TOUCH_TURN_BOOST_WHILE_MOVING = 1.25;
+
 // Deliberately NOT `'ontouchstart' in window || navigator.maxTouchPoints > 0`
 // - that flags ANY touch-capable screen, including a touchscreen laptop or
 // desktop monitor that also has a mouse/trackpad, wrongly handing it the
@@ -45,6 +52,13 @@ function findTouchById(touchList, id) {
 // pointer-lock-gated mousedown/keydown (Pointer Lock is unreliable on
 // mobile Safari, so touch never uses it at all).
 export function createTouchControls(gameScreenElement, playerControls, fire, reload) {
+  // #ammo-display (see game.css) sits at the exact bottom-right corner -
+  // the same corner the Fire/Jump/Crouch/Reload cluster anchors to on
+  // touch. game.css uses this class to shift the ammo card clear of that
+  // cluster ONLY on touch (desktop's corner is otherwise empty, see
+  // ammo-display's own comment, so it stays put there).
+  gameScreenElement.classList.add('touch-active');
+
   const root = document.createElement('div');
   root.id = 'touch-controls';
   root.innerHTML = `
@@ -169,7 +183,10 @@ export function createTouchControls(gameScreenElement, playerControls, fire, rel
     const dy = touch.clientY - lastLookY;
     lastLookX = touch.clientX;
     lastLookY = touch.clientY;
-    playerControls.applyLookDelta(dx, dy);
+    // getSway().isMoving reflects the joystick's current movement state
+    // (see player.js) - cheap to read every move event, no caching needed.
+    const turnBoost = playerControls.getSway().isMoving ? TOUCH_TURN_BOOST_WHILE_MOVING : 1;
+    playerControls.applyLookDelta(dx * turnBoost, dy);
     event.preventDefault();
   }
 
@@ -269,6 +286,7 @@ export function createTouchControls(gameScreenElement, playerControls, fire, rel
   portraitQuery.addEventListener('change', updateOrientationOverlay);
 
   function dispose() {
+    gameScreenElement.classList.remove('touch-active');
     clearAutoRotateTipTimers();
     portraitQuery.removeEventListener('change', updateOrientationOverlay);
     joystickZone.removeEventListener('touchstart', onJoystickTouchStart);

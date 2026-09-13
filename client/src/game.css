@@ -589,6 +589,24 @@
   top: 16px; left: 50%;
   transform: translateX(-50%);
   width: min(94%, 820px);
+  /* On a wide desktop window, min(94%, 820px) never gets close to this cap
+     and nothing changes - but on a narrow mobile screen 94% is nearly the
+     FULL screen width, which put this centered bar's edges right on top of
+     #pot-display (top-left, see above) since both sit in the same top:16px
+     row - the pot card was there in the DOM first but this bar paints over
+     it (later in DOM order, and its own background is opaque). Capping the
+     width so it always leaves real clearance on both sides fixes that on
+     every screen size without needing a separate mobile media query.
+     box-sizing: border-box so this max-width actually caps the rendered
+     footprint (padding+border included) - the first version of this fix
+     left box-sizing at its default content-box, so the real on-screen box
+     was ~42px WIDER than the max-width value alone suggested (this
+     element's own 20px/side padding + 1px/side border), and 220px total
+     clearance undershot #pot-display's real ~156px rendered width anyway -
+     both confirmed by measuring it live in Chrome, not just by reading the
+     numbers. 400px leaves real, measured clearance with margin to spare. */
+  box-sizing: border-box;
+  max-width: calc(100% - 400px);
   display: flex;
   align-items: center;
   justify-content: space-between;

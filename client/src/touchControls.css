@@ -13,6 +13,25 @@
    above the ~44px accessibility-guideline touch-target floor even on a
    small/old phone; the max bound stops them from getting silly-huge on a
    tablet. */
+/* Shared sizing for the Fire cluster below - on :root (not #touch-controls
+   itself) so #ammo-display's .touch-active override further down can read
+   the same values too, even though it's a SIBLING of #touch-controls, not
+   a descendant of it (custom properties only inherit down the tree - a
+   value set on #touch-controls would be invisible to it). This keeps that
+   override always in sync with the cluster's real footprint instead of a
+   second guessed set of numbers that could drift out of sync with these. */
+:root {
+  /* Both edge-gaps bumped further still per feedback that the joystick and
+     button cluster were still too close to their corners even after the
+     first round of clearance increases. */
+  --touch-cluster-edge-gap: clamp(42px, 10vmin, 80px);
+  --touch-fire-size: clamp(90px, 20vmin, 130px);
+  --touch-side-size: clamp(64px, 14vmin, 92px);
+  --touch-cluster-gap: clamp(10px, 2.5vmin, 18px);
+  --touch-joystick-edge-gap: clamp(30px, 7vmin, 60px);
+  --touch-joystick-size: clamp(100px, 22vmin, 160px);
+}
+
 #touch-controls {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -27,10 +46,10 @@
 }
 .touch-joystick-base {
   position: absolute;
-  bottom: clamp(16px, 4vmin, 40px);
-  left: clamp(16px, 4vmin, 40px);
-  width: clamp(100px, 22vmin, 160px);
-  height: clamp(100px, 22vmin, 160px);
+  bottom: var(--touch-joystick-edge-gap);
+  left: var(--touch-joystick-edge-gap);
+  width: var(--touch-joystick-size);
+  height: var(--touch-joystick-size);
   border-radius: 50%;
   background: rgba(17, 19, 22, 0.55);
   border: 2px solid var(--color-border);
@@ -60,15 +79,24 @@
   touch-action: none;
 }
 
+/* Was a plain flex ROW (Reload/Crouch/Jump/Fire left-to-right), which put
+   Fire - the single most-used button - at the very end of the row, right at
+   the screen's corner: barely any clearance from the edge and the hardest
+   button in the cluster for a thumb to comfortably reach. Now an anchor
+   point sized to Fire's own footprint, given real clearance from the
+   bottom-right corner - every other button is positioned AROUND it
+   (Jump above, Crouch beside it, Reload tucked in the corner between them)
+   instead of lined up in a row, so Fire itself can sit further in from the
+   edge while everything else stays within a short thumb-roll of it. */
 .touch-buttons {
   position: absolute;
-  bottom: clamp(16px, 4vmin, 40px);
-  right: clamp(12px, 3vmin, 28px);
-  display: flex;
-  align-items: flex-end;
-  gap: clamp(10px, 3vmin, 20px);
+  bottom: var(--touch-cluster-edge-gap);
+  right: var(--touch-cluster-edge-gap);
+  width: var(--touch-fire-size); /* matches .touch-btn-fire's own size below - this box IS Fire's footprint */
+  height: var(--touch-fire-size);
 }
 .touch-btn {
+  position: absolute;
   font-family: var(--font-display);
   font-weight: 600;
   font-size: clamp(11px, 2.4vmin, 14px);
@@ -83,16 +111,32 @@
   -webkit-tap-highlight-color: transparent;
 }
 .touch-btn-fire {
-  width: clamp(90px, 20vmin, 130px);
-  height: clamp(90px, 20vmin, 130px);
+  inset: 0; /* fills the .touch-buttons anchor box exactly */
+  width: var(--touch-fire-size);
+  height: var(--touch-fire-size);
   font-size: clamp(13px, 2.8vmin, 17px);
   color: var(--color-danger);
   border-color: var(--color-danger);
 }
 .touch-btn-jump,
 .touch-btn-crouch {
-  width: clamp(64px, 14vmin, 92px);
-  height: clamp(64px, 14vmin, 92px);
+  width: var(--touch-side-size);
+  height: var(--touch-side-size);
+}
+/* Directly above Fire - the other single most-reached-for button (movement
+   is already thumb-controlled by the joystick, so this is the next most
+   common tap), placed for the shortest possible thumb travel from Fire. */
+.touch-btn-jump {
+  left: 50%;
+  bottom: calc(100% + var(--touch-cluster-gap));
+  transform: translateX(-50%);
+}
+/* Beside Fire, same baseline - a quick thumb ROLL left from Fire rather
+   than a reach up or across, since crouch/uncrouch is often needed
+   mid-firefight right alongside shooting. */
+.touch-btn-crouch {
+  right: calc(100% + var(--touch-cluster-gap));
+  bottom: 0;
 }
 .touch-btn-crouch.active {
   background: rgba(255, 255, 255, 0.25);
@@ -100,12 +144,41 @@
   border-color: var(--color-success);
 }
 /* Smaller than Jump/Crouch - used far less often (once every magazine's
-   worth of shots, not every jump/crouch), so it gets a smaller footprint
-   in the cluster rather than competing for thumb space at the same size. */
+   worth of shots, not every jump/crouch) - tucked into the diagonal corner
+   above-left of Fire (between Jump and Crouch), the one spot in the
+   cluster that costs the most thumb travel, matching how rarely it's
+   actually needed mid-fight. */
 .touch-btn-reload {
   width: clamp(48px, 10vmin, 70px);
   height: clamp(48px, 10vmin, 70px);
   font-size: clamp(9px, 2vmin, 12px);
+  right: calc(100% + clamp(8px, 2vmin, 14px));
+  bottom: calc(100% + clamp(8px, 2vmin, 14px));
+}
+
+/* #ammo-display (game.css) is normally anchored bottom:16px/right:16px -
+   the exact corner the Fire cluster above ALSO anchors to on touch, and
+   the cluster is the bigger of the two, so left alone the two overlap
+   (confirmed visually - the Fire/Jump buttons sat right on top of the
+   ammo count). Moving the card up to clear the cluster's tallest point
+   (Jump, the topmost button) only on touch - see touchControls.js, which
+   adds/removes this class - leaves desktop's bottom-right corner exactly
+   as before. Built from the same --touch-cluster-* variables as the
+   cluster itself so this can never drift out of sync with a future resize
+   of the cluster. */
+#game-screen.touch-active #ammo-display {
+  bottom: calc(var(--touch-cluster-edge-gap) + var(--touch-fire-size) + var(--touch-cluster-gap) + var(--touch-side-size) + 14px);
+  right: var(--touch-cluster-edge-gap);
+}
+
+/* Same problem, mirrored on the other side of the screen: #health-display
+   (game.css) is normally anchored bottom:16px/left:16px, which is also
+   where the movement joystick's base sits on touch - confirmed visually,
+   the joystick was drawn right over the "VITALS" card's title. Moved up to
+   clear the joystick's own footprint, same approach as #ammo-display above. */
+#game-screen.touch-active #health-display {
+  bottom: calc(var(--touch-joystick-edge-gap) + var(--touch-joystick-size) + 14px);
+  left: var(--touch-joystick-edge-gap);
 }
 
 /* Blocking full-screen prompt while the device is actually in portrait -
