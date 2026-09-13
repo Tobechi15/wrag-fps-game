@@ -1,11 +1,25 @@
-// Simple HTMLAudioElement-based sound manager - no Web Audio graph needed
-// for a prototype's worth of one-shot SFX plus a single looping music
-// track. Every browser requires a user gesture before audio can actually
-// play; the game screen already requires a click (pointer lock) before
-// anything happens, so that gesture is always satisfied by the time any of
-// this fires - .play() promise rejections are still swallowed defensively
-// in case that ever isn't true (a blocked autoplay is not worth crashing
-// over, it's just silence).
+// Web Audio API-based sound manager - no Web Audio graph needed for a
+// prototype's worth of one-shot SFX plus a single looping music track... or
+// so it seemed. The original version of this file used `new Audio(url)` per
+// playSfx() call - simple, but each call constructs a brand-new
+// HTMLMediaElement AND re-decodes the file's audio data from scratch, every
+// single time. That's cheap enough for the occasional footstep/UI blip, but
+// every gunshot (the local player's own AND every bot/remote participant's,
+// see gameScreen.js's 'shot-fired' handler) goes through this same path -
+// during an active firefight with several bots engaging at once, that's a
+// burst of fresh element+decode work several times a second, which is
+// exactly when players reported the game hitching/hanging (never while bots
+// were just patrolling and nothing was firing). Web Audio fixes this at the
+// root: preloadAudio() below decodes every SFX file into an AudioBuffer
+// ONCE, and playSfx() just spins up a lightweight AudioBufferSourceNode
+// pointed at that already-decoded buffer - no re-decoding, no full media
+// element, and cheap enough to fire many times a second without a hitch.
+//
+// Every browser requires a user gesture before audio can actually start;
+// the game screen already requires a click (pointer lock) before anything
+// happens, so getAudioContext()'s resume() call below always has one by the
+// time it's needed. Playback failures are swallowed defensively (a blocked
+// autoplay or a failed decode isn't worth crashing over, it's just silence).
 const SFX_URLS = {
   gunshotPlayer: ['/audio/gunshot-1.mp3', '/audio/gunshot-2.mp3'], // picks one at random per shot, so your own gunfire doesn't sound identical every time
   gunshotRemote: ['/audio/gunshot-1.mp3', '/audio/gunshot-2.mp3'], // any OTHER participant's shot (bot or human) - distinct from your own so you can tell you didn't just fire
@@ -65,11 +79,11 @@ const SFX_VOLUMES = {
 };
 // A real playlist, not one track on repeat - cycles through every track in
 // order (wrapping back to the first once the last one ends) via the
-// 'ended' event below, rather than a single `.loop = true` track. Shuffled
-// ONCE per playMusic() call (not per page load and not re-shuffled on
-// every loop) so a given play session has a fixed, predictable running
-// order instead of the same track potentially repeating back-to-back at
-// the wrap-around point.
+// AudioBufferSourceNode's own 'ended' event below, rather than a single
+// `loop = true` source. Shuffled ONCE per playMusic() call (not per page
+// load and not re-shuffled on every loop) so a given play session has a
+// fixed, predictable running order instead of the same track potentially
+// repeating back-to-back at the wrap-around point.
 const MUSIC_PLAYLIST = [
   '/audio/action-bg-music.mp3',
 ];
@@ -87,20 +101,44 @@ function shuffle(array) {
   return result;
 }
 
-// Warms the browser's HTTP cache for one audio file - a throwaway element,
-// never played, just loaded far enough to know it's actually usable.
-// Resolves on 'canplaythrough' (loaded/buffered) or 'error' (a missing/
-// broken file shouldn't block the match from starting, same tolerance as
-// every other asset loader in this project - it would just play silently
-// wrong later, same as it does today with no preloading at all).
-function preloadUrl(url) {
-  return new Promise((resolve) => {
-    const audio = new Audio();
-    audio.addEventListener('canplaythrough', () => resolve(), { once: true });
-    audio.addEventListener('error', () => resolve(), { once: true });
-    audio.src = url;
-    audio.load();
-  });
+// One AudioContext for the whole page (creating more than one is wasteful
+// and some browsers cap how many can exist) - created lazily since browsers
+// forbid an unstarted/unresumed context before a user gesture. Every
+// decodeAudioData call below works fine even while the context is still
+// 'suspended' (decoding doesn't require the context to be running), so
+// preloading can start immediately at page load, well before any click.
+let audioContext = null;
+function getAudioContext() {
+  if (!audioContext) {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioContextCtor();
+  }
+  return audioContext;
+}
+
+// url -> decoded AudioBuffer, populated once by preloadAudio() and reused
+// for every subsequent playSfx()/music call - the actual fix for the
+// per-shot decode cost described above. Same "load once, reuse many" shape
+// as characterModel.js's template cache.
+const bufferCache = new Map();
+
+// Fetches + decodes one audio file exactly once. A missing/broken file (or
+// a decode failure) shouldn't block the match from starting, same
+// tolerance as every other asset loader in this project - it would just
+// play silently wrong later, same as it does today with no preloading at
+// all - so failures resolve rather than reject, leaving that url absent
+// from bufferCache (playSfx/playCurrentTrack below already no-op on a
+// missing buffer).
+async function loadBuffer(url) {
+  if (bufferCache.has(url)) return;
+  try {
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await getAudioContext().decodeAudioData(arrayBuffer);
+    bufferCache.set(url, audioBuffer);
+  } catch (err) {
+    console.error(`Failed to load/decode audio "${url}":`, err);
+  }
 }
 
 // Every unique SFX/music URL, deduplicated (a few names above share the
@@ -108,7 +146,7 @@ function preloadUrl(url) {
 // matchAssetsReady, which waits on this alongside every other asset type
 // before revealing a match, so the match-start stinger/music (and every
 // sound afterward) actually play the instant they're triggered instead of
-// stuttering on a cold fetch the first time each one is used.
+// stuttering on a cold fetch+decode the first time each one is used.
 export function preloadAudio() {
   const urls = new Set();
   for (const source of Object.values(SFX_URLS)) {
@@ -116,49 +154,75 @@ export function preloadAudio() {
     else urls.add(source);
   }
   for (const url of MUSIC_PLAYLIST) urls.add(url);
-  return Promise.all(Array.from(urls).map(preloadUrl));
+  return Promise.all(Array.from(urls).map(loadBuffer));
 }
 
 export function createAudioManager() {
-  let musicEl = null;
-  let playlist = [];
-  let playlistIndex = 0;
+  let musicSource = null;
+
+  // Plays an already-decoded buffer through its own GainNode (so this
+  // instance's volume doesn't affect any other overlapping instance of the
+  // same sound). The source node is fire-and-forget - the Web Audio graph
+  // cleans it up on its own once playback ends, unlike the old
+  // HTMLAudioElement approach which left a whole media element alive per
+  // call until GC got to it.
+  function playBuffer(buffer, volume) {
+    const context = getAudioContext();
+    if (context.state === 'suspended') context.resume().catch(() => {});
+
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    const gain = context.createGain();
+    gain.gain.value = volume;
+    source.connect(gain);
+    gain.connect(context.destination);
+    source.start(0);
+    return source;
+  }
 
   function playSfx(name) {
-    const source = SFX_URLS[name];
-    if (!source) return;
-    const url = Array.isArray(source) ? source[Math.floor(Math.random() * source.length)] : source;
-    const audio = new Audio(url);
-    audio.volume = SFX_VOLUMES[name] ?? 0.5;
-    audio.play().catch(() => {});
+    const urlSource = SFX_URLS[name];
+    if (!urlSource) return;
+    const url = Array.isArray(urlSource) ? urlSource[Math.floor(Math.random() * urlSource.length)] : urlSource;
+    const buffer = bufferCache.get(url);
+    if (!buffer) return; // not loaded yet (preloadAudio() still in flight, or that file failed) - silently skip, same tolerance as before
+    playBuffer(buffer, SFX_VOLUMES[name] ?? 0.5);
   }
 
   // Plays playlist[playlistIndex], then advances (wrapping around) and
-  // plays the next one the moment THIS track's 'ended' event fires - a
-  // real "loop through the whole playlist," not just one track repeating.
+  // plays the next one the moment THIS track ends - a real "loop through
+  // the whole playlist," not just one track repeating.
+  let playlist = [];
+  let playlistIndex = 0;
   function playCurrentTrack() {
-    musicEl = new Audio(playlist[playlistIndex]);
-    musicEl.volume = MUSIC_VOLUME;
-    musicEl.addEventListener('ended', () => {
+    const url = playlist[playlistIndex];
+    const buffer = bufferCache.get(url);
+    if (!buffer) return; // failed to load - skip straight to silence rather than throwing
+    musicSource = playBuffer(buffer, MUSIC_VOLUME);
+    // Plain onended (not addEventListener) so stopMusic() below can cleanly
+    // remove it by assignment before calling stop() - stop() fires 'ended'
+    // too, and without clearing this first an intentional stop would
+    // immediately advance to and start playing the next track.
+    musicSource.onended = () => {
       playlistIndex = (playlistIndex + 1) % playlist.length;
       playCurrentTrack();
-    });
-    musicEl.play().catch(() => {});
+    };
   }
 
   // Idempotent - a second call while music is already playing is a no-op,
   // so callers don't need to track whether they've already started it.
   function playMusic() {
-    if (musicEl) return;
+    if (musicSource) return;
     playlist = shuffle(MUSIC_PLAYLIST);
     playlistIndex = 0;
     playCurrentTrack();
   }
 
   function stopMusic() {
-    if (!musicEl) return;
-    musicEl.pause();
-    musicEl = null;
+    if (!musicSource) return;
+    musicSource.onended = null;
+    musicSource.stop();
+    musicSource = null;
   }
 
   return {

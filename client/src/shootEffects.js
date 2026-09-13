@@ -45,6 +45,17 @@ function createSparkTexture() {
   return new THREE.CanvasTexture(canvas);
 }
 
+// Fixed pool sizes for muzzle flashes / tracers / sparks - see the big
+// comment above createShootEffects for why these are pre-built once
+// instead of allocated per shot. Generously sized for how many effects can
+// plausibly be alive at once (lifespans are all under a quarter-second),
+// with real headroom for several bots engaging simultaneously - not a hard
+// cap on shots themselves, just on how many of their VISUAL effects can be
+// mid-flight at the same instant.
+const FLASH_POOL_SIZE = 16;
+const TRACER_POOL_SIZE = 16;
+const SPARK_POOL_SIZE = 64; // SPARK_COUNT (6) per shot - enough for ~10 shots' worth of sparks alive at once
+
 // Muzzle flash + a fast-traveling tracer streak + a small burst of ejected
 // spark particles - triggered for the local player's own shots (see
 // gameScreen.js's onFire) AND for every other participant's shots relayed
@@ -53,11 +64,30 @@ function createSparkTexture() {
 // rendered weapon model to flash from, so their flash/sparks spawn at an
 // approximate gun-height point above their reported position instead (see
 // gameScreen.js's 'shot-fired' handler).
+//
+// Every flash/tracer/spark object this manager will ever show is created
+// ONCE, up front, and reused for the rest of the match - triggerShot() only
+// ever pulls an already-built object out of its pool, repositions/restyles
+// it, and flips it visible; tick() returns it to the pool when its lifespan
+// ends instead of disposing it. The previous version allocated a brand-new
+// geometry+material (tracers) or material (flashes/sparks) on every single
+// shot and disposed them a fraction of a second later - fine for the
+// occasional shot, but with several bots actively engaging at once
+// (server-relayed 'shot-fired' messages, same path as the local player's
+// own shots) that meant frequent allocation + WebGL resource teardown
+// churn, which is exactly what players reported as hitching/hanging during
+// firefights - and exactly what was absent while bots were just patrolling,
+// since none of this code runs at all until a shot is actually fired.
 export function createShootEffects(scene) {
   const textureLoader = new THREE.TextureLoader();
   const flareTextures = MUZZLE_FLASH_TEXTURE_URLS.map((url) => textureLoader.load(url));
   const sparkTexture = createSparkTexture();
-  const activeEffects = []; // { object, elapsed, lifespan, kind, ...kind-specific fields }
+
+  // Every tracer is geometrically identical (only its position/orientation
+  // differ, both handled per-instance below) - one shared geometry for the
+  // whole pool, same as the flash/spark pools already share their textures.
+  const tracerGeometry = new THREE.CylinderGeometry(TRACER_RADIUS, TRACER_RADIUS, TRACER_LENGTH, 6, 1, true);
+  tracerGeometry.rotateX(Math.PI / 2); // authored along +Y - rotate so local +Z ("forward") is the long axis, matching how `direction` is used below
 
   function additiveSpriteMaterial(map, color) {
     return new THREE.SpriteMaterial({
@@ -65,18 +95,70 @@ export function createShootEffects(scene) {
     });
   }
 
+  function buildFlashPool() {
+    const pool = [];
+    for (let i = 0; i < FLASH_POOL_SIZE; i++) {
+      const sprite = new THREE.Sprite(additiveSpriteMaterial(flareTextures[0], 0xffb347));
+      sprite.visible = false;
+      sprite.renderOrder = 999;
+      scene.add(sprite);
+      pool.push(sprite);
+    }
+    return pool;
+  }
+
+  function buildTracerPool() {
+    const pool = [];
+    for (let i = 0; i < TRACER_POOL_SIZE; i++) {
+      const material = new THREE.MeshBasicMaterial({
+        color: 0xfff2c0, transparent: true, depthTest: false, blending: THREE.AdditiveBlending,
+      });
+      const mesh = new THREE.Mesh(tracerGeometry, material);
+      mesh.visible = false;
+      mesh.renderOrder = 999;
+      scene.add(mesh);
+      pool.push(mesh);
+    }
+    return pool;
+  }
+
+  function buildSparkPool() {
+    const pool = [];
+    for (let i = 0; i < SPARK_POOL_SIZE; i++) {
+      const sprite = new THREE.Sprite(additiveSpriteMaterial(sparkTexture, 0xffcc66));
+      sprite.visible = false;
+      sprite.renderOrder = 999;
+      scene.add(sprite);
+      pool.push(sprite);
+    }
+    return pool;
+  }
+
+  const flashPool = buildFlashPool();
+  const tracerPool = buildTracerPool();
+  const sparkPool = buildSparkPool();
+  // Stacks of currently-unused pooled objects - triggerShot() pops from
+  // these, tick() pushes back onto them once an effect's lifespan ends.
+  const freeFlashes = [...flashPool];
+  const freeTracers = [...tracerPool];
+  const freeSparks = [...sparkPool];
+
+  const activeEffects = []; // { object, elapsed, lifespan, kind, pool, ...kind-specific fields }
+
   function spawnMuzzleFlash(worldPosition) {
+    const sprite = freeFlashes.pop();
+    if (!sprite) return; // pool exhausted - an implausible number of simultaneous flashes already on screen, just skip this one
     const texture = flareTextures[Math.floor(Math.random() * flareTextures.length)];
-    const sprite = new THREE.Sprite(additiveSpriteMaterial(texture, 0xffb347));
-    sprite.position.copy(worldPosition);
+    sprite.material.map = texture;
+    sprite.material.opacity = 1;
     // A slight random roll so repeated flashes from the same weapon don't
     // look like a stamped-down copy of each other.
     sprite.material.rotation = Math.random() * Math.PI * 2;
+    sprite.position.copy(worldPosition);
     sprite.scale.setScalar(MUZZLE_FLASH_SIZE);
-    sprite.renderOrder = 999;
-    scene.add(sprite);
+    sprite.visible = true;
     activeEffects.push({
-      object: sprite, elapsed: 0, lifespan: MUZZLE_FLASH_LIFESPAN, kind: 'flash',
+      object: sprite, elapsed: 0, lifespan: MUZZLE_FLASH_LIFESPAN, kind: 'flash', pool: freeFlashes,
     });
   }
 
@@ -85,24 +167,18 @@ export function createShootEffects(scene) {
   // forward each frame, giving a genuine "flying round" look rather than a
   // blob that just fades in place.
   function spawnTracer(worldOrigin, direction) {
-    const geometry = new THREE.CylinderGeometry(TRACER_RADIUS, TRACER_RADIUS, TRACER_LENGTH, 6, 1, true);
-    // Cylinders are authored along +Y - rotate the geometry itself so the
-    // mesh's local +Z (its "forward") is the long axis instead, matching
-    // how `direction` is used below.
-    geometry.rotateX(Math.PI / 2);
-    const material = new THREE.MeshBasicMaterial({
-      color: 0xfff2c0, transparent: true, depthTest: false, blending: THREE.AdditiveBlending,
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.renderOrder = 999;
+    const mesh = freeTracers.pop();
+    if (!mesh) return;
+    mesh.material.opacity = 1;
     mesh.position.copy(worldOrigin);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
-    scene.add(mesh);
+    mesh.visible = true;
     activeEffects.push({
       object: mesh,
       elapsed: 0,
       lifespan: TRACER_LIFESPAN,
       kind: 'tracer',
+      pool: freeTracers,
       direction: direction.clone(),
       origin: worldOrigin.clone(),
     });
@@ -117,6 +193,9 @@ export function createShootEffects(scene) {
     const up = new THREE.Vector3().crossVectors(right, direction).normalize();
 
     for (let i = 0; i < SPARK_COUNT; i++) {
+      const sprite = freeSparks.pop();
+      if (!sprite) break; // pool exhausted - drop the rest of this burst rather than the whole shot's effects
+
       const spreadAngle = (Math.random() - 0.5) * 0.6;
       const spreadRoll = Math.random() * Math.PI * 2;
       const velocity = direction.clone()
@@ -125,26 +204,27 @@ export function createShootEffects(scene) {
         .normalize()
         .multiplyScalar(SPARK_SPEED_MIN + Math.random() * (SPARK_SPEED_MAX - SPARK_SPEED_MIN));
 
-      const sprite = new THREE.Sprite(additiveSpriteMaterial(sparkTexture, 0xffcc66));
+      sprite.material.opacity = 1;
       sprite.position.copy(worldOrigin);
       sprite.scale.setScalar(SPARK_SIZE * (0.6 + Math.random() * 0.6));
-      sprite.renderOrder = 999;
-      scene.add(sprite);
+      sprite.visible = true;
       activeEffects.push({
         object: sprite,
         elapsed: 0,
         lifespan: SPARK_LIFESPAN_MIN + Math.random() * (SPARK_LIFESPAN_MAX - SPARK_LIFESPAN_MIN),
         kind: 'spark',
+        pool: freeSparks,
         origin: worldOrigin.clone(),
         velocity,
       });
     }
   }
 
-  function disposeEffect(effect) {
-    scene.remove(effect.object);
-    effect.object.geometry?.dispose();
-    effect.object.material.dispose();
+  // Returns a finished effect's object to its pool instead of disposing it
+  // - just hides it and makes it available for the next spawn* call.
+  function releaseEffect(effect) {
+    effect.object.visible = false;
+    effect.pool.push(effect.object);
   }
 
   function tick(deltaSeconds) {
@@ -153,7 +233,7 @@ export function createShootEffects(scene) {
       effect.elapsed += deltaSeconds;
 
       if (effect.elapsed >= effect.lifespan) {
-        disposeEffect(effect);
+        releaseEffect(effect);
         activeEffects.splice(i, 1);
         continue;
       }
@@ -190,7 +270,10 @@ export function createShootEffects(scene) {
   }
 
   function dispose() {
-    for (const effect of activeEffects) disposeEffect(effect);
+    for (const sprite of flashPool) { scene.remove(sprite); sprite.material.dispose(); }
+    for (const mesh of tracerPool) { scene.remove(mesh); mesh.material.dispose(); }
+    for (const sprite of sparkPool) { scene.remove(sprite); sprite.material.dispose(); }
+    tracerGeometry.dispose();
     activeEffects.length = 0;
     for (const texture of flareTextures) texture.dispose();
     sparkTexture.dispose();
