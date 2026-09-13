@@ -8,7 +8,7 @@ const SCREEN_CENTER = new THREE.Vector2(0, 0); // NDC (0,0) = dead center = cros
 // project has no per-weapon ammo tuning yet (weapon.js's GUN_VARIANTS only
 // differ in visual model/scale), so a single shared value is the whole
 // scope here rather than inventing a per-gun system nothing else needs yet.
-const MAGAZINE_SIZE = 8;
+const MAGAZINE_SIZE = 16;
 const RELOAD_DURATION_MS = 1800;
 
 // Wires up "click to fire". On every left-click while the mouse is locked,
