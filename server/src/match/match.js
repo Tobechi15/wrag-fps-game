@@ -865,32 +865,52 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
 
   // Starts a Coop/Private respawn - the FIRST of two phases (see
   // finishRespawn below), fired the instant death happens rather than
-  // resetting the player immediately. Per the user: match points (pot) are
-  // PERSONAL and earned per individual kill - a respawn isn't the end of
-  // your match, just a setback, so unsecured pot now survives a respawn
-  // intact instead of being wiped like a permanent elimination (that used
-  // to happen here - see eliminatePlayer's finalPot = securedPot for the
-  // one place unsecured pot genuinely IS still lost: running out of lives
-  // for real). The kill SCORE shown in the Coop status bar is the separate,
-  // general/team-wide consequence of dying - a death still costs nothing
-  // there directly, but every respawn is a stretch of time NOT scoring
-  // kills for the team, which is the real cost now. Marks the player
-  // `respawning` (see getRealPlayers/otherEntities above - makes them
-  // untargetable for the rest of the delay, so a second "kill" can't land
-  // on someone already dead and stack a second respawn on top of the
-  // first), tells the player themselves how long the countdown is (client
-  // shows a banner - see gameScreen.js's 'respawn-countdown' handler), and
-  // tells everyone else this id just went down (the normal death-fall
-  // animation - client/src/remotePlayers.js's remove() - safely gets
-  // cancelled and replaced once finishRespawn's 'player-respawned' arrives,
-  // same as it already does for a permanent elimination).
+  // resetting the player immediately.
+  //
+  // IMPORTANT: `pot` represents the player's UNSECURED match points.
+  // `securedPot` represents points that have already been moved into
+  // security by successfully reaching the extraction zone.
+  //
+  // Per the game rules, dying before extraction forfeits the entire
+  // unsecured pot. A respawn is therefore a loss of all points currently
+  // sitting in `player.pot`, while `player.securedPot` remains untouched.
+  //
+  // Example:
+  //   securedPot = 100
+  //   pot        = 250
+  //   player dies
+  //   respawn:
+  //   securedPot = 100
+  //   pot        = 0
+  //
+  // The player does NOT lose previously secured points. Only the unsecured
+  // amount is reset.
+  //
+  // Marks the player `respawning` (see getRealPlayers/otherEntities above),
+  // making them untargetable for the rest of the delay so a second "kill"
+  // cannot land on someone already dead and stack another respawn on top
+  // of the first.
+  //
+  // The player is told how long the countdown is, while other players are
+  // notified that this player has gone down. finishRespawn() later restores
+  // the player to the active game state.
   function beginRespawn(id, killedByCallsign) {
     const player = players.get(id);
     if (!player || player.isBot) return;
 
     player.respawning = true;
 
-    console.log(`${player.callsign} died (death ${player.deathCount}/${modeConfig.maxDeaths === Infinity ? '∞' : modeConfig.maxDeaths}, keeping ${player.pot} unsecured pot) - respawning in ${RESPAWN_DELAY_MS / 1000}s in match ${matchId}`);
+    // Death forfeits ALL unsecured points.
+    // Keep securedPot intact because those points were already extracted
+    // and are therefore protected from death.
+    const lostUnsecuredPot = player.pot;
+    player.pot = 0;
+
+    console.log(
+      `${player.callsign} died (death ${player.deathCount}/${modeConfig.maxDeaths === Infinity ? '∞' : modeConfig.maxDeaths}, ` +
+      `lost ${lostUnsecuredPot} unsecured pot, keeping ${player.securedPot} secured pot) - ` +
+      `respawning in ${RESPAWN_DELAY_MS / 1000}s in match ${matchId}`
+    );
 
     if (player.socket) {
       player.socket.send(JSON.stringify({
@@ -901,8 +921,11 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
         killedBy: killedByCallsign,
       }));
     }
+
     broadcastToOthers({ type: 'player-left', id });
-    broadcastTeamStatus(); // reflect the "down, respawning" state immediately - see buildTeamStatus's respawning check above
+
+    // Reflect the "down, respawning" state immediately.
+    broadcastTeamStatus();
 
     setTimeout(() => finishRespawn(id, killedByCallsign), RESPAWN_DELAY_MS);
   }
