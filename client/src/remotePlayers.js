@@ -89,6 +89,10 @@ function lerpAngle(start, end, t) {
   else if (delta < -Math.PI) delta += Math.PI * 2;
   return start + delta * t;
 }
+
+// See getAimAssistTargets below - roughly torso height above a participant's
+// reported (feet-level) ground position.
+const AIM_ASSIST_HEIGHT_OFFSET = 1.0;
 const DEATH_DISPLAY_SECONDS = 3; // how long a corpse stays visible after 'player-left' before actually being removed
 const FALL_SECONDS = 0.7; // procedural topple duration, well within DEATH_DISPLAY_SECONDS
 const FALL_SETTLE_DEPTH = 0.08; // how far the body sinks/settles into the ground as it finishes falling - see the easing note below
@@ -252,6 +256,7 @@ export function createRemotePlayerManager(scene) {
       isMoving: false,
       lastPosition: null,
       gunMesh,
+      isAlly,
       hasReceivedUpdate: false,
       interpFrom: null,
       interpTo: null,
@@ -282,6 +287,7 @@ export function createRemotePlayerManager(scene) {
     scene.add(mesh);
     return {
       root: mesh, mixer: null, idleAction: null, moveAction: null, deathClip: null, currentAction: null, isMoving: false, lastPosition: null, gunMesh: null,
+      isAlly,
       hasReceivedUpdate: false,
       interpFrom: null,
       interpTo: null,
@@ -545,7 +551,28 @@ export function createRemotePlayerManager(scene) {
     return target;
   }
 
+  // World-space aim points for every currently-live ENEMY participant (bots
+  // included, allies excluded - see touchControls.js's aim assist, the only
+  // caller) - one per entry, at roughly chest height above their reported
+  // ground position (entry.root.position is feet-level for the real
+  // character model, see upsert's groundY handling) rather than their feet,
+  // matching where a player instinctively aims. A "dying" entry (already
+  // mid-death-animation - see remove()/tick() above) is excluded for free
+  // here, since it's already been deleted from entriesById by that point.
+  function getAimAssistTargets() {
+    const points = [];
+    for (const entry of entriesById.values()) {
+      if (entry.isAlly) continue; // never auto-aim at a teammate
+      points.push(new THREE.Vector3(
+        entry.root.position.x,
+        entry.root.position.y + AIM_ASSIST_HEIGHT_OFFSET,
+        entry.root.position.z,
+      ));
+    }
+    return points;
+  }
+
   return {
-    upsert, remove, respawn, tick, getMuzzleWorldPosition,
+    upsert, remove, respawn, tick, getMuzzleWorldPosition, getAimAssistTargets,
   };
 }

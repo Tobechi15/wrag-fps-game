@@ -576,9 +576,14 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // fire()/reload() are the exact same logic the mouse/keyboard path
   // already uses (see shooting.js) - touchControls.js just calls them
   // directly instead of gating on Pointer Lock (unreliable on mobile
-  // Safari, so touch never uses it at all).
+  // Safari, so touch never uses it at all). camera/getAimAssistTargets feed
+  // touchControls.js's aim assist (see its own comment) - it projects each
+  // live enemy's position to screen space itself, so it only needs read
+  // access to the camera and the current target list, nothing else.
   const touchControls = isTouchDevice()
-    ? createTouchControls(gameScreenElement, playerControls, shootingSystem.fire, shootingSystem.reload)
+    ? createTouchControls(gameScreenElement, playerControls, shootingSystem.fire, shootingSystem.reload, {
+      camera, getAimAssistTargets: remotePlayers.getAimAssistTargets,
+    })
     : null;
 
   // Keep the render resolution and camera aspect ratio in sync with the window.

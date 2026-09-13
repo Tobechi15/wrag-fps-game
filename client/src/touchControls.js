@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 // Mobile touch controls: a fixed-position virtual joystick (movement),
 // drag-to-look on the right half of the screen, and Fire/Jump/Crouch
 // buttons - only ever constructed when isTouchDevice() is true (see
@@ -18,6 +20,62 @@ const AUTO_ROTATE_TIP_FADE_MS = 700;
 // moving, leaving vertical look and the mouse/keyboard path (player.js's
 // own onMouseMove -> applyLookDelta) completely untouched.
 const TOUCH_TURN_BOOST_WHILE_MOVING = 1.25;
+
+// Aim assist ("magnetism") - touch has no equivalent to a mouse's pixel-
+// precise pointer, so landing exactly on a moving target through a finger
+// drag is much harder than with a mouse. While actively look-dragging, if
+// the nearest enemy's projected screen position is within
+// AIM_ASSIST_RADIUS_PX of the crosshair (screen center - see shooting.js,
+// which always fires dead-center), a small extra nudge is added toward it
+// on top of the player's own drag - the same applyLookDelta path normal
+// look input already goes through, just scaled down (AIM_ASSIST_STRENGTH),
+// so it never fights or overrides manual aim, only helps finish it. Mouse
+// look (player.js's onMouseMove) is completely untouched - precise pointer
+// aim doesn't need or want this, and unwanted "magnetism" on a mouse is
+// exactly the kind of thing PC shooter players actively dislike.
+const AIM_ASSIST_RADIUS_PX = 60;
+const AIM_ASSIST_DEADZONE_PX = 4; // already close enough - no nudge, so this never fights a final fine adjustment right at the target
+const AIM_ASSIST_STRENGTH = 0.18; // fraction of the remaining pixel offset pulled in per touch-move event
+
+// Reused scratch vector - projecting a target to screen space every
+// touch-move event shouldn't allocate a new Vector3 each time.
+const projectedPoint = new THREE.Vector3();
+
+// Finds the on-screen-nearest aim-assist candidate (see remotePlayers.js's
+// getAimAssistTargets) and returns a small look-delta nudge toward it, or
+// null if none are close enough to the crosshair (or none exist, or
+// getAimAssistTargets wasn't provided at all - e.g. a caller that hasn't
+// wired a remote-player manager up yet).
+function findAimAssistDelta(camera, getAimAssistTargets) {
+  if (!camera || !getAimAssistTargets) return null;
+  const targets = getAimAssistTargets();
+  if (!targets || targets.length === 0) return null;
+
+  const halfWidth = window.innerWidth / 2;
+  const halfHeight = window.innerHeight / 2;
+  let bestDx = 0;
+  let bestDy = 0;
+  let bestDistSq = Infinity;
+
+  for (const worldPoint of targets) {
+    projectedPoint.copy(worldPoint).project(camera);
+    if (projectedPoint.z < -1 || projectedPoint.z > 1) continue; // behind the camera (or outside clip range) - never assist toward something not actually visible
+    const screenX = (projectedPoint.x + 1) * halfWidth;
+    const screenY = (1 - projectedPoint.y) * halfHeight; // NDC y is up; screen y is down
+    const dx = screenX - halfWidth;
+    const dy = screenY - halfHeight;
+    const distSq = (dx * dx) + (dy * dy);
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      bestDx = dx;
+      bestDy = dy;
+    }
+  }
+
+  const bestDist = Math.sqrt(bestDistSq);
+  if (bestDist > AIM_ASSIST_RADIUS_PX || bestDist < AIM_ASSIST_DEADZONE_PX) return null;
+  return { dx: bestDx * AIM_ASSIST_STRENGTH, dy: bestDy * AIM_ASSIST_STRENGTH };
+}
 
 // Deliberately NOT `'ontouchstart' in window || navigator.maxTouchPoints > 0`
 // - that flags ANY touch-capable screen, including a touchscreen laptop or
@@ -51,7 +109,7 @@ function findTouchById(touchList, id) {
 // mouse/keyboard path uses, just invoked directly instead of through a
 // pointer-lock-gated mousedown/keydown (Pointer Lock is unreliable on
 // mobile Safari, so touch never uses it at all).
-export function createTouchControls(gameScreenElement, playerControls, fire, reload) {
+export function createTouchControls(gameScreenElement, playerControls, fire, reload, { camera, getAimAssistTargets } = {}) {
   // #ammo-display (see game.css) sits at the exact bottom-right corner -
   // the same corner the Fire/Jump/Crouch/Reload cluster anchors to on
   // touch. game.css uses this class to shift the ammo card clear of that
@@ -187,6 +245,12 @@ export function createTouchControls(gameScreenElement, playerControls, fire, rel
     // (see player.js) - cheap to read every move event, no caching needed.
     const turnBoost = playerControls.getSway().isMoving ? TOUCH_TURN_BOOST_WHILE_MOVING : 1;
     playerControls.applyLookDelta(dx * turnBoost, dy);
+
+    // Aim assist - see findAimAssistDelta above. Applied AFTER the player's
+    // own drag, as a small additional nudge, never a replacement for it.
+    const assist = findAimAssistDelta(camera, getAimAssistTargets);
+    if (assist) playerControls.applyLookDelta(assist.dx, assist.dy);
+
     event.preventDefault();
   }
 

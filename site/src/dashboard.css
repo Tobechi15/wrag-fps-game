@@ -325,3 +325,45 @@ html, body {
     color: var(--color-text-primary);
   }
 }
+
+/* A phone in LANDSCAPE has the opposite problem from portrait: plenty of
+   width, very little height. The portrait rules above stretch the dock
+   full-width regardless of orientation - fine in portrait (width is the
+   scarce resource there), but in landscape that just wastes all the extra
+   width while squeezing the dock's real content into a much shorter box,
+   forcing an internal scrollbar for something as short as the Play Mode
+   dock and hiding the ENTIRE character stage behind it edge-to-edge
+   (confirmed visually - at 844x390 the full-width dock covered the whole
+   screen). Narrowing the dock and anchoring it to one side - same idea as
+   the original desktop dock-right spot - uses the width landscape actually
+   has to spare instead, and leaves the character stage visible beside it.
+   Must come AFTER the block above (same .dock/.dock-toggle-bar selectors,
+   same specificity) so these win by source order whenever both conditions
+   match (a screen that's both <=1000px wide AND landscape). */
+@media (max-width: 1000px) and (orientation: landscape) {
+  .dock {
+    left: auto;
+    right: 16px;
+    width: min(380px, 42vw);
+    bottom: 64px; /* the toggle bar is shorter here too, see below */
+    max-height: calc(100dvh - 80px);
+    /* Tighter than the base 22px - on the shortest common landscape phone
+       (~375px tall, e.g. iPhone SE) the Play Mode dock's content was just
+       tall enough to need an internal scroll even after the width/anchor
+       fix above; this alone was enough to fit it without scrolling there
+       (confirmed live), while barely being noticeable on a taller phone. */
+    padding: 14px;
+  }
+  .playmode-main {
+    margin-bottom: 6px;
+  }
+  .eyebrow.dock-subsection {
+    margin-top: 10px;
+  }
+  .dock-toggle-bar {
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  }
+  .dock-toggle-btn {
+    padding: 8px;
+  }
+}
