@@ -713,53 +713,79 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
     return false;
   }
 
-  // Pays out a kill AND sends every recipient their own 'shoot-result' -
-  // the only place either happens, so the direct killer's own message
-  // (when they're a real player) and their teammates' messages can never
-  // both fire for the same kill. In Coop, the FULL kill-point value goes
-  // to every real player on the killer's team, including the killer
-  // themselves if they're one (confirmed with the user - not a reduced
-  // "assist" amount for teammates), so an ally scoring still pays you.
-  // Everywhere else (no teams), it's just the direct killer (and only if
-  // they're a real player - a bot has no wallet/UI of its own to notify).
-  // Kill COUNT attribution (killer.kills, killCountsById, both updated by
-  // the caller before this runs) is always individual regardless of mode -
-  // that's what the post-match scoreboard needs to show who actually got
-  // each kill, separate from who got paid for it.
+  // Pays out a kill AND sends the direct killer their own 'shoot-result'.
+  // This is the only place the kill-point payout happens.
   //
-  // `victimIsBot` picks which of the mode's two per-kill values applies -
-  // a bot kill pays modeConfig.botPointsPerKill (a % of the normal value,
-  // see modes.js's BOT_KILL_VALUE_PERCENT), never the full amount. This is
-  // about the VICTIM, not the killer - an ally bot in Coop scoring a real
-  // kill still pays the team its full normal rate; only the recipients of a
-  // BOT'S death get the discounted number, whoever did the killing.
-  // Without this, a mostly-bot-filled match (bots fill any queue that's
-  // short on real players, see index.js) would let a team farm the exact
-  // same kill-point value from a bot as from an actual opposing player,
-  // draining the raked economy for free.
+  // Kill points are awarded ONLY to the player who actually landed the kill.
+  // Team membership has NO effect on kill-point distribution in Coop or any
+  // other team-based mode. Teammates do not receive any portion of the kill
+  // payout, even when the killer and teammates share the same teamId.
+  //
+  // Kill COUNT attribution (killer.kills, killCountsById, both updated by the
+  // caller before this runs) is always individual regardless of mode - that is
+  // what the post-match scoreboard uses to show who actually got each kill.
+  // The same individual attribution now applies to the kill-point payout.
+  //
+  // A bot killer never receives a payout because bots do not have a wallet or
+  // player UI of their own to credit. A real-player killer receives the entire
+  // per-kill payout after the house rake is applied.
+  //
+  // `victimIsBot` determines which of the mode's two per-kill values applies.
+  // A kill against a bot uses modeConfig.botPointsPerKill (the discounted
+  // value defined by the mode configuration), while a kill against a real
+  // player uses modeConfig.pointsPerKill.
+  //
+  // This discount is based on the VICTIM, not the killer. For example, if a
+  // real player kills a bot, the bot-kill value is used. If a real player
+  // kills another real player, the normal kill value is used. Whether the
+  // killer is in Coop, Battle Royale, Private, or another mode does not
+  // change the fact that only that direct killer receives the payout.
+  //
+  // The house rake is applied once per kill because there is only one payout
+  // recipient. Previously, Coop selected every real player sharing the
+  // killer's teamId, which caused the full kill-point value to be credited
+  // to every teammate. That behavior is intentionally removed here.
+  //
+  // `killer` is the actual killer object supplied by the caller. When the
+  // killer is a real player, `[killer]` makes that exact player the sole
+  // recipient. There is no team lookup or iteration over other players.
   function awardKillPoints(killer, victimIsBot) {
-    const recipients = modeConfig.teams
-      ? Array.from(players.values()).filter((p) => !p.isBot && p.teamId === killer.teamId)
-      : (killer.isBot ? [] : [killer]);
+    // Only the player who actually landed the kill receives the payout.
+    // Bots have no wallet/UI, so bot killers receive nothing.
+    const recipients = killer.isBot ? [] : [killer];
 
-    // House rake applied HERE, per recipient - this is a payout (see
-    // wallet.js's applyRake), unlike a player extracting/banking their own
-    // already-earned pot, which never gets raked.
-    const rawValue = victimIsBot ? modeConfig.botPointsPerKill : modeConfig.pointsPerKill;
+    // Use the discounted value when the victim was a bot.
+    // Use the normal value when the victim was a real player.
+    const rawValue = victimIsBot
+      ? modeConfig.botPointsPerKill
+      : modeConfig.pointsPerKill;
+
+    // Apply the house rake to the single kill payout.
     const payout = applyRake(rawValue);
+
+    // Record the rake once because only the direct killer receives the payout.
     if (recipients.length > 0) {
-      recordRakeCollected((rawValue - payout) * recipients.length).catch((err) => {
+      recordRakeCollected(rawValue - payout).catch((err) => {
         console.error('Failed to record kill-payout rake in house ledger:', err);
       });
     }
+
+    // Credit and notify only the player who actually landed the kill.
     for (const p of recipients) {
       p.pot += payout;
+
       if (p.socket) {
-        p.socket.send(JSON.stringify({ type: 'shoot-result', hit: true, killed: true, pot: p.pot }));
+        p.socket.send(
+          JSON.stringify({
+            type: 'shoot-result',
+            hit: true,
+            killed: true,
+            pot: p.pot,
+          })
+        );
       }
     }
   }
-
   // A bot's death, however it happened (a real player's shot - see
   // handleShotOnEntity below - or another bot's, see onBotShoot above).
   // Normally advances the placement counter and checks for a match-ending
