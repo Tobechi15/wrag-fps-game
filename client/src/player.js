@@ -47,6 +47,30 @@ const BOB_FREQUENCY_IDLE = 1.2; // a slow "breathing" sway while standing still
 const BOB_AMPLITUDE_X_IDLE = 0.015;
 const BOB_AMPLITUDE_Y_IDLE = 0.008;
 
+// Hit-shake: a brief, decaying random jolt on top of the normal camera
+// position/rotation, triggered by gameScreen.js whenever THIS player takes
+// damage (see triggerShake below) - "you got hit" feedback, distinct from
+// the sway above (which is a smooth, continuous function of movement, not
+// a one-off event). intensity is a unitless 0+ scalar (gameScreen.js picks
+// bigger numbers for a death blow than a normal hit); these two constants
+// convert it into actual position (meters) / rotation (radians) magnitude.
+const SHAKE_POSITION_SCALE = 0.05;
+const SHAKE_ROTATION_SCALE = 0.03;
+
+// First-person "collapsing to the ground" death view (see triggerDeathFall
+// below) - distinct from the hit-shake above (a brief jolt) and from
+// remotePlayers.js's third-person fall animation for OTHER participants
+// (this player never sees their own body, only their own camera). Runs as
+// an eased blend toward a fixed "looking down, near the ground" pose over
+// DEATH_FALL_DURATION_SECONDS, then holds there - the player is either
+// about to respawn (gameScreen.js's 'respawn' handler calls respawnTo(),
+// which resets this) or the match is ending outright, so there's nothing
+// to animate back FROM once it settles.
+const DEATH_FALL_DURATION_SECONDS = 1.1;
+const DEATH_FALL_HEIGHT_DROP = 1.3; // meters subtracted from eye height as the view "collapses"
+const DEATH_FALL_TARGET_PITCH = -1.3; // radians - looking down toward the ground (see applyLookDelta's sign-convention comment below)
+const DEATH_FALL_ROLL_RANGE = 0.4; // radians - a random left/right topple, not always the same direction
+
 // Wires up first-person mouse look + WASD movement for the given camera.
 // Uses the browser's Pointer Lock API: once the player clicks the canvas,
 // the mouse cursor is hidden and captured, and every mouse move gives us a
@@ -96,6 +120,24 @@ export function createPlayerControls(camera, domElement, overlayElement) {
   // small on-screen button without it feeling fiddly - see setVirtualCrouchHeld.
   let virtualCrouchHeld = false;
 
+  // Hit-shake state (see triggerShake below) - shakeMagnitude decays
+  // linearly to 0 over shakeDurationSeconds, recomputed fresh on every
+  // trigger (a new hit always fully restarts the shake rather than adding
+  // to whatever's left of a previous one, so back-to-back hits each read
+  // as their own distinct jolt instead of compounding unpredictably).
+  let shakeMagnitude = 0;
+  let shakeDecayPerSecond = 0;
+
+  // Death-fall state (see triggerDeathFall below) - deathFallStartPitch
+  // captures wherever the player was actually looking at the moment of
+  // death, so the fall blends smoothly FROM that real look direction
+  // rather than snapping. deathFallRoll is rolled once per trigger (a
+  // random left/right topple), not re-randomized every frame.
+  let deathFallActive = false;
+  let deathFallElapsed = 0;
+  let deathFallStartPitch = 0;
+  let deathFallRoll = 0;
+
   // Frozen while waiting to respawn (see gameScreen.js's 'respawn-countdown'/
   // 'respawn' handlers and setMovementLocked below) - looking around still
   // works (nothing gates yaw/pitch), only WASD/touch-joystick movement,
@@ -116,6 +158,10 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     const clampedX = Math.max(-MAX_MOUSE_DELTA_PER_EVENT, Math.min(MAX_MOUSE_DELTA_PER_EVENT, movementX));
     const clampedY = Math.max(-MAX_MOUSE_DELTA_PER_EVENT, Math.min(MAX_MOUSE_DELTA_PER_EVENT, movementY));
     yaw -= clampedX * LOOK_SENSITIVITY;
+    // Sign convention (see DEATH_FALL_TARGET_PITCH above, which relies on
+    // this): mouse moving down is a positive movementY, which DECREASES
+    // pitch here - so negative pitch means looking down, positive means
+    // looking up.
     pitch -= clampedY * LOOK_SENSITIVITY;
     // Clamp pitch just short of straight up/down so the camera never flips.
     const maxPitch = Math.PI / 2 - 0.01;
@@ -163,7 +209,43 @@ export function createPlayerControls(camera, domElement, overlayElement) {
   const moveDirection = new THREE.Vector3();
 
   function update(deltaSeconds) {
-    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    // Decay first, then derive this frame's random offset from whatever's
+    // left - so the shake is strongest the instant it's triggered and
+    // fades smoothly to nothing over shakeDecayPerSecond's implied
+    // duration, rather than a constant-intensity shake that just stops.
+    shakeMagnitude = Math.max(0, shakeMagnitude - shakeDecayPerSecond * deltaSeconds);
+    const shakeRotationX = shakeMagnitude > 0 ? (Math.random() - 0.5) * 2 * shakeMagnitude * SHAKE_ROTATION_SCALE : 0;
+    const shakeRotationY = shakeMagnitude > 0 ? (Math.random() - 0.5) * 2 * shakeMagnitude * SHAKE_ROTATION_SCALE : 0;
+    const shakePositionX = shakeMagnitude > 0 ? (Math.random() - 0.5) * 2 * shakeMagnitude * SHAKE_POSITION_SCALE : 0;
+    const shakePositionY = shakeMagnitude > 0 ? (Math.random() - 0.5) * 2 * shakeMagnitude * SHAKE_POSITION_SCALE : 0;
+
+    // Death-fall: an eased blend from wherever the player was looking at
+    // the moment of death toward a fixed "collapsed, looking at the
+    // ground" pose - REPLACES pitch entirely while active (not additive
+    // like shake above) so it reads as a clean, predictable fall
+    // regardless of any mouse movement during the window (looking around
+    // is still technically live during the respawn-lock, see
+    // movementLocked below - this just overrides what's actually
+    // rendered). Once t reaches 1 it holds there rather than deactivating,
+    // since the player is either about to respawn (respawnTo() resets
+    // this) or the match is ending outright.
+    let renderedPitch = pitch;
+    let deathFallHeightOffset = 0;
+    let deathFallRollOffset = 0;
+    if (deathFallActive) {
+      deathFallElapsed += deltaSeconds;
+      const t = Math.min(deathFallElapsed / DEATH_FALL_DURATION_SECONDS, 1);
+      const eased = 1 - (1 - t) ** 2; // easeOutQuad - fast at first (falling), settling near the end
+      renderedPitch = deathFallStartPitch + (DEATH_FALL_TARGET_PITCH - deathFallStartPitch) * eased;
+      deathFallHeightOffset = -DEATH_FALL_HEIGHT_DROP * eased;
+      deathFallRollOffset = deathFallRoll * eased;
+    }
+
+    // shakeRotation is added ONLY to what's actually rendered here - pitch/
+    // yaw themselves (the real aim direction) are never touched, so the
+    // shake (and the death-fall pitch override above) can never throw off
+    // where the player is actually looking/aiming once either settles.
+    camera.rotation.set(renderedPitch + shakeRotationX, yaw + shakeRotationY, deathFallRollOffset, 'YXZ');
 
     // Forward/right vectors flattened onto the ground plane (ignore pitch)
     // so looking up/down doesn't change movement speed or fly the player.
@@ -242,7 +324,11 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     currentSwayY = (Math.sin(bobTime) ** 2) * amplitudeY;
     currentlyMoving = isMoving;
 
-    camera.position.set(truePosition.x + currentSwayX, truePosition.y + currentSwayY, truePosition.z);
+    camera.position.set(
+      truePosition.x + currentSwayX + shakePositionX,
+      truePosition.y + currentSwayY + shakePositionY + deathFallHeightOffset,
+      truePosition.z,
+    );
   }
 
   function dispose() {
@@ -289,6 +375,8 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     jumpOffset = 0;
     jumpRequested = false;
     crouchAmount = 0;
+    shakeMagnitude = 0; // a fresh life shouldn't inherit whatever's left of the death blow's shake
+    deathFallActive = false; // ...same for the collapsed death-fall pose - a respawn stands back up clean
     camera.position.copy(truePosition);
   }
 
@@ -316,8 +404,34 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     movementLocked = locked;
   }
 
+  // Triggers/restarts the hit-shake (see the constants and per-frame decay
+  // above) - gameScreen.js calls this from its 'hit' handler (a smaller
+  // intensity) and its death-related handlers ('respawn-countdown',
+  // 'match-ended' with reason 'eliminated' - a noticeably bigger one, per
+  // the user's "make death shot vibration more pronounced" ask).
+  // durationSeconds controls how long it takes to decay back to 0, not how
+  // strong it starts - that's intensity.
+  function triggerShake(intensity, durationSeconds) {
+    shakeMagnitude = intensity;
+    shakeDecayPerSecond = intensity / durationSeconds;
+  }
+
+  // Starts the first-person death-fall (see the constants/update() logic
+  // above) - gameScreen.js calls this alongside triggerShake from its
+  // death-related handlers ('respawn-countdown', 'match-ended' with reason
+  // 'eliminated'), giving a "collapsing to the ground" POV to go with the
+  // shake. Captures the CURRENT pitch as the fall's starting point (so it
+  // blends from wherever the player actually was looking, not a snap to
+  // some fixed angle) and rolls a fresh random topple direction each time.
+  function triggerDeathFall() {
+    deathFallActive = true;
+    deathFallElapsed = 0;
+    deathFallStartPitch = pitch;
+    deathFallRoll = (Math.random() - 0.5) * 2 * DEATH_FALL_ROLL_RANGE;
+  }
+
   return {
     update, dispose, getYaw, getPosition, getSway, respawnTo, applyLookDelta,
-    setVirtualMoveInput, setVirtualCrouchHeld, requestJump, setMovementLocked,
+    setVirtualMoveInput, setVirtualCrouchHeld, requestJump, setMovementLocked, triggerShake, triggerDeathFall,
   };
 }

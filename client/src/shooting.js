@@ -34,7 +34,7 @@ const SCREEN_CENTER = new THREE.Vector2(0, 0); // NDC (0,0) = dead center = cros
 // spammable at the same speed just because the player can click/tap that
 // fast.
 export function createShootingSystem(camera, targets, domElement, {
-  onLocalHit, onFire, onDryFire, onReloadStart, onReloadEnd, magazineSize, reloadDurationMs, fireCooldownMs,
+  onLocalHit, onFire, onDryFire, onReloadStart, onReloadEnd, onAmmoChange, magazineSize, reloadDurationMs, fireCooldownMs,
 }) {
   // Set while waiting to respawn (see gameScreen.js's 'respawn-countdown'/
   // 'respawn' handlers) - a "dead" player shouldn't be able to keep firing
@@ -52,6 +52,17 @@ export function createShootingSystem(camera, targets, domElement, {
   // blocked waiting on a cooldown that hasn't started yet.
   let lastFireAt = -Infinity;
 
+  // Reports the current ammo count to the HUD (see gameScreen.js's
+  // #ammo-count) - called once up front so the display never shows a
+  // stale/placeholder value, then again every time ammoInMag actually
+  // changes (a shot, a reload finishing, or a reset - never on the
+  // "reload denied, already full" no-op paths below, since nothing
+  // changed there).
+  function reportAmmo() {
+    onAmmoChange(ammoInMag, magazineSize);
+  }
+  reportAmmo();
+
   function startReload() {
     isReloading = true;
     onReloadStart(reloadDurationMs);
@@ -60,6 +71,7 @@ export function createShootingSystem(camera, targets, domElement, {
       ammoInMag = magazineSize;
       reloadTimeoutId = null;
       onReloadEnd();
+      reportAmmo();
     }, reloadDurationMs);
   }
 
@@ -75,6 +87,7 @@ export function createShootingSystem(camera, targets, domElement, {
       onReloadEnd();
     }
     ammoInMag = magazineSize;
+    reportAmmo();
   }
 
   // The actual raycast-and-report logic, shared by the mouse path below
@@ -104,6 +117,7 @@ export function createShootingSystem(camera, targets, domElement, {
     }
 
     ammoInMag -= 1;
+    reportAmmo();
     if (ammoInMag <= 0) startReload();
   }
 

@@ -20,6 +20,16 @@ import { isTouchDevice, createTouchControls } from './touchControls.js';
 const WIN_END_DELAY_MS = 2000; // lets the win banner actually be read before cutting to the post-match screen - just under WIN_BANNER_MS's own fade-out
 const FAILURE_END_DELAY_MS = 2000; // same idea, for the losing banner - see FAILURE_BANNER_MS above
 
+// Hit-shake intensity/duration (see player.js's triggerShake) - a normal
+// non-lethal hit gets a quick, moderate jolt; the shot that actually kills
+// this player (leading to a respawn OR final elimination) is noticeably
+// bigger and lasts longer, per the user's explicit "make death shot
+// vibration more pronounced" ask.
+const HIT_SHAKE_INTENSITY = 1;
+const HIT_SHAKE_DURATION_SECONDS = 0.25;
+const DEATH_SHAKE_INTENSITY = 3.5;
+const DEATH_SHAKE_DURATION_SECONDS = 0.6;
+
 // Runs one match. `network` is the SAME connection that was already open
 // while the player sat in the lobby (see app.js/network.js), and
 // `initialRoster` is the list of matchmates the server already told us
@@ -379,6 +389,7 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
       console.log(`Hit by ${hitBy} - health now ${health}/${maxHealth}`);
       healthTracker.setHealth(health, maxHealth);
       flashHitDamage();
+      playerControls.triggerShake(HIT_SHAKE_INTENSITY, HIT_SHAKE_DURATION_SECONDS);
       audio.playSfx('hurt');
     },
     // The battle-royale "X remaining" counter - Versus/Private only (see
@@ -420,6 +431,8 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
       startRespawnCountdown(seconds, killedBy);
       potTracker.setSecured(securedPot, pot);
       audio.playSfx('dying');
+      playerControls.triggerShake(DEATH_SHAKE_INTENSITY, DEATH_SHAKE_DURATION_SECONDS);
+      playerControls.triggerDeathFall();
       playerControls.setMovementLocked(true);
       shootingSystem.setLocked(true);
     },
@@ -475,6 +488,8 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
       if (message.reason === 'eliminated') {
         flashHitDamage();
         audio.playSfx('dying');
+        playerControls.triggerShake(DEATH_SHAKE_INTENSITY, DEATH_SHAKE_DURATION_SECONDS);
+        playerControls.triggerDeathFall();
         flashFailureBanner(message.killedBy ? `Eliminated by ${message.killedBy}` : 'Eliminated');
         setTimeout(() => endMatch(message), FAILURE_END_DELAY_MS);
       } else if (message.reason === 'last-standing' || message.reason === 'team-victory') {
@@ -513,6 +528,20 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     reloadIndicatorEl.hidden = true;
   }
 
+  // Ammo counter HUD (see index.html's #ammo-display / game.css) - "current
+  // / magazine size", so the player can see exactly how many rounds are
+  // left without guessing from the reload-indicator alone (that only ever
+  // appears once the mag is already empty or mid-manual-reload). Low-ammo
+  // warning at 20% or less of a full magazine (rounded down, so a 5-round
+  // sniper mag warns at 1 left, not 0) - same "danger" red language the
+  // pot/health HUD already uses elsewhere.
+  const ammoCountEl = gameScreenElement.querySelector('#ammo-count');
+  const LOW_AMMO_FRACTION = 0.2;
+  function updateAmmoDisplay(current, max) {
+    ammoCountEl.textContent = `${current} / ${max}`;
+    ammoCountEl.classList.toggle('danger', current <= Math.floor(max * LOW_AMMO_FRACTION));
+  }
+
   const muzzleWorldPosition = new THREE.Vector3(); // reused each shot so onFire doesn't allocate
   const shootingSystem = createShootingSystem(camera, targets, canvas, {
     onLocalHit: (hitTarget) => flashTargetHit(hitTarget),
@@ -533,6 +562,7 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
       audio.playSfx('reload');
     },
     onReloadEnd: () => endReloadAnimation(),
+    onAmmoChange: (current, max) => updateAmmoDisplay(current, max),
     // Per-weapon (see weapon.js's GUN_VARIANTS) - already resolved/
     // fallback-applied by createWeapon, so read straight off the handle
     // rather than re-doing that lookup here.

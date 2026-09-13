@@ -151,7 +151,8 @@
    also per-#id below, since which two corners they sit on depends on which
    corner that panel's own clip-path already cuts. */
 #pot-display,
-#health-display {
+#health-display,
+#ammo-display {
   position: absolute;
   background: linear-gradient(145deg, rgba(28, 30, 36, 0.94) 0%, rgba(11, 12, 15, 0.94) 100%);
   border: 1px solid var(--color-border);
@@ -161,7 +162,9 @@
 #pot-display::before,
 #pot-display::after,
 #health-display::before,
-#health-display::after {
+#health-display::after,
+#ammo-display::before,
+#ammo-display::after {
   content: '';
   position: absolute;
   width: 13px;
@@ -269,6 +272,34 @@
 }
 #health-display::before { top: -1px; right: -1px; border-top: 2px solid var(--color-text-secondary); border-right: 2px solid var(--color-text-secondary); }
 #health-display::after { bottom: -1px; left: -1px; border-bottom: 2px solid var(--color-text-secondary); border-left: 2px solid var(--color-text-secondary); }
+
+/* Ammo display: bottom-right, the one corner none of the other HUD panels
+   already occupy (pot top-left, vitals bottom-left, coop/match-status
+   top-center) - standard FPS placement, opposite the health panel. Same
+   "cut one corner, bracket the diagonal pair, leave the fourth plain"
+   treatment as pot (cuts top-right, brackets top-left+bottom-right) and
+   health (cuts top-left, brackets top-right+bottom-left) - this one cuts
+   bottom-right, so it brackets top-right+bottom-left, leaving top-left
+   plain. */
+#ammo-display {
+  bottom: 16px; right: 16px;
+  padding: 10px 18px 12px;
+  min-width: 110px;
+  text-align: right;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%);
+}
+#ammo-display::before { top: -1px; right: -1px; border-top: 2px solid var(--color-accent); border-right: 2px solid var(--color-accent); }
+#ammo-display::after { bottom: -1px; left: -1px; border-bottom: 2px solid var(--color-accent); border-left: 2px solid var(--color-accent); }
+#ammo-display .stat-value {
+  display: block;
+  font-size: 22px;
+  text-shadow: 0 0 6px currentColor;
+}
+/* Low-ammo warning - toggled in gameScreen.js once current ammo drops to
+   (or below) a small fraction of the magazine, same "danger" red the
+   at-risk pot value and low-health states already use elsewhere in this
+   HUD, for a consistent "pay attention" language. */
+#ammo-display .stat-value.danger { color: var(--color-danger); }
 .health-bar {
   width: 100%;
   height: 11px;
