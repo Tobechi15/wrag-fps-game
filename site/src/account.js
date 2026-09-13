@@ -1,6 +1,9 @@
 import { fetchCurrentUser, updateCallsign, changePassword } from './auth-client.js';
 import { fetchDashboardSummary, depositToWallet } from './dashboard-client.js';
 import { wirePlaceholderLinks } from './toast.js';
+import { registerServiceWorker } from './registerServiceWorker.js';
+
+registerServiceWorker();
 
 async function initAccountPage() {
   const user = await fetchCurrentUser();

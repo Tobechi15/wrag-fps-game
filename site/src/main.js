@@ -1,5 +1,8 @@
 import { fetchCurrentUser, logout } from './auth-client.js';
 import { wirePlaceholderLinks } from './toast.js';
+import { registerServiceWorker } from './registerServiceWorker.js';
+
+registerServiceWorker();
 
 // Motion layer for the landing page: live-match panel ticking, scroll
 // reveal, 3D mouse-tilt on cards, and a parallax hero background - the

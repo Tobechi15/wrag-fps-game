@@ -1,0 +1,14 @@
+{
+  "name": "WRAG - Enter. Eliminate. Extract.",
+  "short_name": "WRAG",
+  "description": "A stakes-based extraction shooter - deploy, eliminate, extract your earnings before you're taken out.",
+  "start_url": "/dashboard.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0b0d",
+  "theme_color": "#0a0b0d",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

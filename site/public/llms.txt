@@ -1,0 +1,22 @@
+# WRAG
+
+> WRAG is a stakes-based extraction shooter: deploy into a match, eliminate hostiles, and extract before you're taken out. Points earned during a match stay "at risk" - only extracting locks them in as secured; dying before that loses whatever's still unsecured.
+
+## Pages
+
+- [Home](https://wrag-fps.vercel.app/): Marketing landing page - how the risk/reward loop works, game modes, and sign-up.
+- [Sign Up](https://wrag-fps.vercel.app/signup.html): New player registration.
+- [Log In](https://wrag-fps.vercel.app/login.html): Existing player sign-in.
+
+## Game modes
+
+- Battle Royale (Versus): free-for-all, standard entry stake.
+- Co-op: two squads, shared team score, respawns available.
+- Private: invite-only room with an optional custom stake.
+- Survival: solo vs. endless bots, no stakes, personal best score.
+
+## Notes
+
+- The dashboard, account, and admin pages require an authenticated session and are not publicly listed here (see robots.txt).
+- The actual in-match gameplay runs as a separate real-time WebSocket/WebGL client, launched from the dashboard - this marketing site itself is static.
+- All in-app currency (PTS) is virtual/demo - no real money is involved anywhere in this project.

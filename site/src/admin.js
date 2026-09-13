@@ -2,6 +2,9 @@ import { fetchCurrentUser } from './auth-client.js';
 import {
   fetchHouseLedger, fetchLiveStats, fetchAdminUsers, fetchAdminMatches, adjustUserBalance,
 } from './admin-client.js';
+import { registerServiceWorker } from './registerServiceWorker.js';
+
+registerServiceWorker();
 
 const format = (n) => n.toLocaleString('en-US');
 

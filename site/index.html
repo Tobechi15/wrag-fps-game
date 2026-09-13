@@ -2,7 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WRAG — Enter. Eliminate. Extract.</title>
+  <meta name="description" content="WRAG is a stakes-based extraction shooter - deploy, eliminate hostiles, and extract your earnings before you're taken out." />
+
+  <!-- Icons/PWA - see site/public/{favicon.svg,icon-*.png,manifest.webmanifest}.
+       Same set on every page (this file's own comment covers the reasoning
+       for all of them - not repeated on the other five pages). -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0b0d" />
+
+  <!-- Open Graph/Twitter - only on this page (the one people would
+       actually link/share), not repeated on login/signup/dashboard/
+       account/admin. og:url/og:image MUST be absolute (external crawlers
+       - Facebook/Twitter/Discord - have no "relative to this domain"
+       concept) - update this placeholder to the real deployed domain, same
+       as robots.txt/sitemap.xml's own copy of this same placeholder. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="WRAG — Enter. Eliminate. Extract." />
+  <meta property="og:description" content="A stakes-based extraction shooter - deploy, eliminate hostiles, and extract your earnings before you're taken out." />
+  <meta property="og:url" content="https://wrag-fps.vercel.app/" />
+  <meta property="og:image" content="https://wrag-fps.vercel.app/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="WRAG — Enter. Eliminate. Extract." />
+  <meta name="twitter:description" content="A stakes-based extraction shooter - deploy, eliminate hostiles, and extract your earnings before you're taken out." />
+  <meta name="twitter:image" content="https://wrag-fps.vercel.app/icon-512.png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link

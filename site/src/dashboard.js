@@ -4,6 +4,9 @@ import { fetchDashboardSummary, depositToWallet } from './dashboard-client.js';
 import { wirePlaceholderLinks, showToast } from './toast.js';
 import { loadCharacterPreview } from './characterPreview.js';
 import { createAudioManager } from './audio.js';
+import { registerServiceWorker } from './registerServiceWorker.js';
+
+registerServiceWorker();
 
 // The actual, already-working game client (Part A). The dashboard's Play
 // button fetches a one-time token first (see auth-client.js's

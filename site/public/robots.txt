@@ -1,0 +1,13 @@
+# Public marketing/auth pages are indexable; the dashboard, account, and
+# admin pages require a logged-in session and have nothing useful to show
+# a crawler anyway (they'd just hit the login redirect), so they're kept
+# out of search results.
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /account.html
+Disallow: /admin.html
+
+# Update this to your real deployed domain once live - see this project's
+# .env.example files for the same "not yet deployed" placeholder pattern.
+Sitemap: https://wrag-fps.vercel.app/sitemap.xml

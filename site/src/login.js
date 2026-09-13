@@ -1,4 +1,7 @@
 import { login } from './auth-client.js';
+import { registerServiceWorker } from './registerServiceWorker.js';
+
+registerServiceWorker();
 
 const form = document.getElementById('login-form');
 const errorEl = document.getElementById('auth-error');
