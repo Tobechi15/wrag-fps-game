@@ -82,3 +82,44 @@
   padding: 16px;
   font-size: 16px;
 }
+
+/* Same "shrink the panel, don't restructure it" landscape treatment as
+   lobbyScreen.css's matching block (see its own comment for the full
+   reasoning) - just smaller padding/gaps/font-sizes so the whole card fits
+   a short landscape viewport without needing #post-match-screen's own
+   outer scroll. The scoreboard lists reuse lobbyScreen.css's .queue-list,
+   whose own internal scroll is untouched here, same as the lobby's queue
+   list - only trimmed slightly since less of it needs to show before that
+   scroll kicks in. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #post-match-screen {
+    padding: 6px;
+  }
+  .post-match {
+    gap: 8px;
+  }
+  .post-match-title {
+    font-size: 18px;
+  }
+  .result-panel .stat {
+    padding: 8px 6px;
+    gap: 3px;
+  }
+  .post-match-detail {
+    min-height: 0;
+  }
+  .team-scoreboard {
+    padding: 8px;
+  }
+  .queue-list {
+    max-height: 90px;
+  }
+  .post-match-actions {
+    gap: 6px;
+  }
+  .return-btn,
+  .dashboard-btn {
+    padding: 10px;
+    font-size: 14px;
+  }
+}

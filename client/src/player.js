@@ -2,7 +2,17 @@ import * as THREE from 'three';
 import { moveWithCollision } from './map.js';
 
 const MOVE_SPEED = 5; // meters per second
-const PLAYER_HEIGHT = 1.7; // camera height off the ground, roughly eye level
+// Camera height off the ground, i.e. eye level - was 1.7. Measured directly
+// against the actual remote character model (client/src/characterModel.js -
+// same rig every variant shares): projecting a same-height, same-distance
+// character's own head/eye area at 1.7 put the local camera's straight-
+// ahead look-level noticeably ABOVE their eyes, reading as looking down at
+// them - confirmed both numerically (a level look-ray at 1.7 lands close to
+// the model's HELMET CROWN, not its face) and per direct in-game feedback.
+// The helmet sits a bit above the real head underneath it, so even the
+// anthropometric eye-height estimate from the crown alone slightly
+// overshoots the real eye position - this lower value corrects for that.
+const PLAYER_HEIGHT = 1.64;
 const LOOK_SENSITIVITY = 0.0022; // radians per pixel of mouse movement
 const PLAYER_RADIUS = 0.4; // for wall collision only - roughly matches the server's entity hitbox (see hitRegistration.js's ENTITY_HITBOX_HALF_EXTENTS)
 
@@ -14,7 +24,7 @@ const PLAYER_RADIUS = 0.4; // for wall collision only - roughly matches the serv
 // teammates only ever see a plain Y-position blip from these.
 const GRAVITY = -22; // meters/second^2 - tuned for a snappy, arcade-ish arc rather than a realistic float
 const JUMP_VELOCITY = 7.5; // initial upward speed on takeoff, meters/second
-const CROUCH_HEIGHT = 1.0; // camera height while crouched, vs PLAYER_HEIGHT standing
+const CROUCH_HEIGHT = 0.94; // camera height while crouched, vs PLAYER_HEIGHT standing - was 1.0, shifted down by the same 0.06m as PLAYER_HEIGHT above so the standing-to-crouch drop (0.7m) is unchanged
 const CROUCH_MOVE_SPEED_MULTIPLIER = 0.5;
 const CROUCH_TRANSITION_SPEED = 10; // how fast the camera lerps between standing/crouched height
 
