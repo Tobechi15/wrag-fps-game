@@ -282,70 +282,62 @@
   color: var(--color-text-secondary);
 }
 
-/* A phone in LANDSCAPE has the opposite shape problem from portrait: very
-   little height, plenty of width. .lobby is a single centered column
-   capped at 480px - fine in portrait, but in landscape that stacks header +
-   stake panel + tier select + queue panel + countdown panel all in one
-   tall strip, which either overflows a short viewport (needing the
-   internal scroll #lobby-screen already sets up - not broken, just not a
-   good use of the screen) or, once it fits, leaves the entire rest of the
-   screen's WIDTH empty on both sides. Splitting into two columns puts the
-   settings-ish panels (stake/tier - or Private/Survival's own single panel,
-   given the full width since they have no column-2 counterpart) on the
-   left and the live queue/countdown on the right, using that spare width
-   to roughly halve the total height needed instead. Gated on `max-height`
-   (not `max-width`, which the dashboard's landscape rules key off instead)
-   because .lobby's own 480px cap already keeps it a phone-appropriate size
-   at any width - height is the actual scarce resource here. A hidden panel
-   (see lobbyScreen.js's applyModeVisibility - only one mode's panels are
-   ever visible at once) simply removes itself from the grid entirely, so
-   there's no empty gap left behind for whichever mode doesn't use a given
-   area. */
+/* A phone in LANDSCAPE has very little height to work with - .lobby's
+   normal sizing (built for a portrait phone or a desktop window) can
+   overflow a short landscape viewport, forcing #lobby-screen's own scroll.
+   The original single-column arrangement already reads fine here per the
+   user - a 2-column reshuffle was tried and explicitly NOT wanted - so this
+   only shrinks padding/gaps/font-sizes to fit the same layout into less
+   height, exactly the same "shrink the panel, don't restructure it"
+   treatment as game.css's #game-screen.touch-active compact HUD. The
+   player queue list's own internal scroll (.queue-list, unchanged here)
+   was already fine before this and stays exactly as it was - only the
+   OUTER page-level scroll (the actual problem) is what shrinking this is
+   meant to avoid needing. */
 @media (orientation: landscape) and (max-height: 500px) {
   #lobby-screen {
-    padding: 8px;
+    padding: 6px;
   }
   .lobby {
-    max-width: 720px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 20px;
-    row-gap: 6px;
+    gap: 6px;
   }
   .lobby-header {
-    grid-column: 1 / -1;
     margin-bottom: 0;
   }
   .lobby-title {
     font-size: 18px;
   }
-  #stake-panel,
-  #tier-select {
-    grid-column: 1;
-  }
-  /* Private/Survival have no natural column-2 counterpart (queue/countdown
-     are hidden in both modes) - full width reads better than a lonely
-     left-only column with empty space beside it. */
-  #private-panel,
-  #survival-panel {
-    grid-column: 1 / -1;
-  }
-  #queue-panel,
-  #countdown-panel {
-    grid-column: 2;
+  .lobby-subtitle {
+    font-size: 11px;
   }
   .stake-panel .stat {
     padding: 8px 6px;
   }
+  .tier-select {
+    gap: 6px;
+  }
   .tier-btn {
-    padding: 8px;
+    padding: 6px 8px;
   }
   .queue-panel,
   .countdown-panel,
   .private-panel {
-    padding: 10px;
+    padding: 8px;
   }
+  /* The queue list's OWN scroll is fine/expected (per the user, it already
+     was) - shrinking its max-height just means less of the outer panel's
+     total height goes to it before that scroll kicks in, not that
+     scrolling itself is being removed. */
   .queue-list {
-    max-height: 96px;
+    max-height: 90px;
+  }
+  .queue-header {
+    margin-bottom: 6px;
+  }
+  .countdown {
+    font-size: 22px;
+  }
+  .countdown-note {
+    margin-top: 2px;
   }
 }
