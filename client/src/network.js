@@ -1,4 +1,9 @@
-const SEND_INTERVAL_MS = 50; // ~20 position updates/sec - plenty smooth for a prototype
+// ~20 position updates/sec - plenty smooth for a prototype. Exported so
+// remotePlayers.js can size its own network-interpolation window off the
+// same number rather than duplicating it - the two must stay in sync (if
+// this got slower, remote players would visibly pause between updates
+// before the interpolation catches up).
+export const SEND_INTERVAL_MS = 50;
 
 // A single WebSocket connection that lives for the whole browser tab, from
 // the moment you land in the lobby through however many matches you play.

@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { WALLS, dynamicObstacles } from './map.js';
 
@@ -129,6 +130,48 @@ function loadTemplates() {
   ).then((entries) => Object.fromEntries(entries));
 }
 
+const dummy = new THREE.Object3D();
+
+// Renders every placement of one distinct prop model as a single
+// THREE.InstancedMesh draw call (one per mesh the model is made of - trees
+// and pines are trunk+leaves, so two) instead of PROP_COUNT/16 separate
+// Mesh objects each costing their own draw call. Mobile GPU drivers pay a
+// real per-draw-call CPU/driver overhead that desktop drivers mostly hide,
+// so with PROP_COUNT scattered instances across 16 models (trees/pines
+// each 2 primitives) the old clone-per-placement approach meant close to
+// 400 individual draw calls for scenery alone, every single frame - by far
+// the single biggest cost difference between this game's laptop and
+// mobile framerate. Instancing turns that into ~24 draw calls total,
+// independent of PROP_COUNT.
+function addInstancedProps(scene, template, placements) {
+  const meshes = [];
+  template.traverse((child) => {
+    if (child.isMesh) meshes.push(child);
+  });
+
+  for (const mesh of meshes) {
+    const instanced = new THREE.InstancedMesh(mesh.geometry, mesh.material, placements.length);
+    instanced.castShadow = false;
+    instanced.receiveShadow = false;
+
+    placements.forEach(({ x, z, rotationY, scale }, index) => {
+      dummy.position.set(x, 0, z);
+      dummy.rotation.set(0, rotationY, 0);
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      // mesh.matrix is the mesh's own local transform relative to the
+      // template root (identity for every prop in this pack, but composed
+      // properly rather than assumed, in case that ever changes) -
+      // combined with the per-placement transform the same way the old
+      // per-instance clone + model.position/rotation/scale did.
+      const worldMatrix = new THREE.Matrix4().multiplyMatrices(dummy.matrix, mesh.matrix);
+      instanced.setMatrixAt(index, worldMatrix);
+    });
+    instanced.instanceMatrix.needsUpdate = true;
+    scene.add(instanced);
+  }
+}
+
 export async function createNature(scene) {
   // dynamicObstacles is a module-level singleton in map.js, so a fresh
   // match calling createNature() again must clear out the previous
@@ -139,6 +182,11 @@ export async function createNature(scene) {
 
   const templates = await loadTemplates();
 
+  // Decide every placement up front, grouped by which model it uses - an
+  // InstancedMesh needs its instance count fixed at construction, so the
+  // per-key placement list has to exist before any InstancedMesh for that
+  // key can be created.
+  const placementsByKey = new Map();
   for (let i = 0; i < PROP_COUNT; i++) {
     const key = PROP_KEYS[Math.floor(Math.random() * PROP_KEYS.length)];
     const template = templates[key];
@@ -148,17 +196,19 @@ export async function createNature(scene) {
     const isGrass = GRASS_KEYS.has(key);
     const [scaleMin, scaleMax] = isGrass ? GRASS_SCALE_RANGE : NORMAL_SCALE_RANGE;
     const scale = randomBetween(scaleMin, scaleMax);
+    const rotationY = randomBetween(0, Math.PI * 2);
 
-    const model = template.clone(true);
-    model.position.set(x, 0, z);
-    model.rotation.y = randomBetween(0, Math.PI * 2);
-    model.scale.setScalar(scale);
-    scene.add(model);
+    if (!placementsByKey.has(key)) placementsByKey.set(key, []);
+    placementsByKey.get(key).push({ x, z, rotationY, scale });
 
     if (TREE_KEYS.has(key)) {
       dynamicObstacles.push({ x, z, radius: TREE_COLLISION_RADIUS * scale });
     } else if (ROCK_KEYS.has(key)) {
       dynamicObstacles.push({ x, z, radius: ROCK_COLLISION_RADIUS * scale });
     }
+  }
+
+  for (const [key, placements] of placementsByKey) {
+    addInstancedProps(scene, templates[key], placements);
   }
 }

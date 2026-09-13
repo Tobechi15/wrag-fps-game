@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { AnimationMixer, LoopRepeat, LoopOnce } from 'three';
 import { cloneCharacterModel, CHARACTER_VARIANTS } from './characterModel.js';
 import { cloneRemoteWeaponModel, getRemoteWeaponMuzzleOffsetZ } from './weapon.js';
+import { SEND_INTERVAL_MS } from './network.js';
 
 const CAPSULE_RADIUS = 0.3;
 const CAPSULE_LENGTH = 1.1; // straight cylinder part, excluding the rounded caps
@@ -64,6 +65,30 @@ const REMOTE_MUZZLE_FLASH_MANUAL_OFFSET = new THREE.Vector3(0, 0, 0);
 
 const ANIMATION_CROSSFADE_SECONDS = 0.2;
 const MOVEMENT_THRESHOLD = 0.01; // meters between updates below which a participant counts as standing still
+
+// A remote participant's position/yaw used to SNAP straight to whatever
+// network.js's 'move' messages last reported (arriving at most every
+// SEND_INTERVAL_MS, i.e. ~20Hz) - fine over a perfect connection, but any
+// real-world latency/jitter (worse on mobile networks than wired/Wi-Fi)
+// meant they visibly teleported between updates instead of walking
+// smoothly. Every upsert() now instead retargets a short lerp from
+// wherever the model currently IS (not from the previous network snapshot
+// - so a late-arriving update never causes a visible pop back) to the
+// newly reported position/yaw, played out over this many seconds by
+// tick() below. Padded a bit past the raw send interval so ordinary
+// jitter (a packet a little later than usual) still finishes smoothly
+// rather than visibly pausing at the target while waiting for the next one.
+const REMOTE_INTERP_SECONDS = (SEND_INTERVAL_MS / 1000) * 1.3;
+
+// Shortest-path angle lerp (plain THREE.MathUtils.lerp would spin the long
+// way around whenever a turn crosses the -PI/PI wrap, e.g. facing 179°
+// turning to -179° is a 2° turn, not a 358° one).
+function lerpAngle(start, end, t) {
+  let delta = (end - start) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  else if (delta < -Math.PI) delta += Math.PI * 2;
+  return start + delta * t;
+}
 const DEATH_DISPLAY_SECONDS = 3; // how long a corpse stays visible after 'player-left' before actually being removed
 const FALL_SECONDS = 0.7; // procedural topple duration, well within DEATH_DISPLAY_SECONDS
 const FALL_SETTLE_DEPTH = 0.08; // how far the body sinks/settles into the ground as it finishes falling - see the easing note below
@@ -227,6 +252,10 @@ export function createRemotePlayerManager(scene) {
       isMoving: false,
       lastPosition: null,
       gunMesh,
+      hasReceivedUpdate: false,
+      interpFrom: null,
+      interpTo: null,
+      interpElapsed: 0,
     };
   }
 
@@ -253,6 +282,10 @@ export function createRemotePlayerManager(scene) {
     scene.add(mesh);
     return {
       root: mesh, mixer: null, idleAction: null, moveAction: null, deathClip: null, currentAction: null, isMoving: false, lastPosition: null, gunMesh: null,
+      hasReceivedUpdate: false,
+      interpFrom: null,
+      interpTo: null,
+      interpElapsed: 0,
     };
   }
 
@@ -325,13 +358,28 @@ export function createRemotePlayerManager(scene) {
     // ground; the real character model is already grounded at its own
     // origin (see characterModel.js), so it uses y=0 directly.
     const groundY = entry.root.userData.isCapsuleFallback ? CAPSULE_CENTER_Y : 0;
-    entry.root.position.set(position.x, groundY, position.z);
     // The Swat model's authored "forward" faces the opposite way from our
     // yaw convention (confirmed in-browser: characters were walking
     // backwards) - the capsule fallback has no visible front, so the
     // offset only applies to the real character model.
     const yawOffset = entry.root.userData.isCapsuleFallback ? 0 : Math.PI;
-    entry.root.rotation.y = yaw + yawOffset;
+    const targetYaw = yaw + yawOffset;
+
+    if (!entry.hasReceivedUpdate) {
+      // First sighting of this id - nothing to interpolate FROM yet, so
+      // place it immediately rather than lerping in from the origin.
+      entry.root.position.set(position.x, groundY, position.z);
+      entry.root.rotation.y = targetYaw;
+      entry.hasReceivedUpdate = true;
+    } else {
+      // Retarget the lerp from wherever the model is RIGHT NOW (which may
+      // be mid-lerp toward the previous update, not necessarily the
+      // previous update's own endpoint) - so a new update never causes a
+      // visible pop back to some earlier point before smoothing onward.
+      entry.interpFrom = { x: entry.root.position.x, z: entry.root.position.z, yaw: entry.root.rotation.y };
+      entry.interpTo = { x: position.x, z: position.z, y: groundY, yaw: targetYaw };
+      entry.interpElapsed = 0;
+    }
   }
 
   // Actually tears down one corpse's resources - called once
@@ -363,6 +411,18 @@ export function createRemotePlayerManager(scene) {
   function tick(deltaSeconds) {
     for (const entry of entriesById.values()) {
       entry.mixer?.update(deltaSeconds);
+
+      if (entry.interpFrom && entry.interpTo) {
+        entry.interpElapsed += deltaSeconds;
+        const t = Math.min(entry.interpElapsed / REMOTE_INTERP_SECONDS, 1);
+        entry.root.position.set(
+          THREE.MathUtils.lerp(entry.interpFrom.x, entry.interpTo.x, t),
+          entry.interpTo.y,
+          THREE.MathUtils.lerp(entry.interpFrom.z, entry.interpTo.z, t),
+        );
+        entry.root.rotation.y = lerpAngle(entry.interpFrom.yaw, entry.interpTo.yaw, t);
+        if (t >= 1) entry.interpFrom = null; // arrived - nothing left to advance until the next upsert() retargets it
+      }
     }
 
     for (let i = dyingEntries.length - 1; i >= 0; i--) {
