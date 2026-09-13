@@ -51,6 +51,16 @@
     </div>
     <div id="click-to-play">Click to play</div>
     <div id="crosshair"></div>
+    <!-- Hamburger menu - currently just the one Quit Match action, but
+         built as a real toggleable panel (not a single always-visible
+         button) so more match-level options have somewhere to go later
+         without competing for HUD space. -->
+    <button id="hamburger-btn" type="button" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div id="hamburger-panel" hidden>
+      <button class="btn quit-match-btn" type="button" id="quit-match-btn">Quit Match</button>
+    </div>
     <div id="reload-indicator" hidden>
       <svg viewBox="0 0 44 44">
         <circle class="reload-ring-bg" cx="22" cy="22" r="18"></circle>

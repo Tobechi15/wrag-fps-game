@@ -13,6 +13,7 @@ import { createMap } from './map.js';
 import { createProps } from './props.js';
 import { createNature } from './nature.js';
 import { createShootEffects } from './shootEffects.js';
+import { createHitDirectionIndicator } from './hitDirectionIndicator.js';
 import { createArms } from './arms.js';
 import { createAudioManager, preloadAudio } from './audio.js';
 import { isTouchDevice, createTouchControls } from './touchControls.js';
@@ -48,7 +49,7 @@ const DEATH_SHAKE_DURATION_SECONDS = 0.6;
 // setLives for what an absent/<=1 total means (the row stays hidden).
 const MAX_LIVES_BY_MODE = { coop: 3 };
 
-export function startGame(gameScreenElement, network, initialRoster, onMatchEnded, gunVariant, localTeamId = null, playMode = 'versus') {
+export function startGame(gameScreenElement, network, initialRoster, onMatchEnded, gunVariant, localTeamId = null, playMode = 'versus', onQuit = () => {}) {
   const canvas = document.createElement('canvas');
   gameScreenElement.appendChild(canvas);
 
@@ -82,6 +83,19 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // it explicitly so every new match starts with "click to play" visible.
   overlay.classList.remove('hidden');
   const playerControls = createPlayerControls(camera, canvas, overlay);
+
+  // Hamburger menu - same "persistent element, reset explicitly" reasoning
+  // as the overlay above (this whole gameScreenElement is reused across
+  // matches, not recreated). Closed by default every match; the actual
+  // Quit Match click is wired further down, once quitMatch() below exists.
+  const hamburgerBtnEl = gameScreenElement.querySelector('#hamburger-btn');
+  const hamburgerPanelEl = gameScreenElement.querySelector('#hamburger-panel');
+  const quitMatchBtnEl = gameScreenElement.querySelector('#quit-match-btn');
+  hamburgerPanelEl.hidden = true;
+  function onHamburgerClick() {
+    hamburgerPanelEl.hidden = !hamburgerPanelEl.hidden;
+  }
+  hamburgerBtnEl.addEventListener('click', onHamburgerClick);
 
   // Shown from the moment a match starts until every loader-based asset
   // below has actually resolved (see matchAssetsReady) - also a persistent
@@ -205,6 +219,7 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   const weapon = createWeapon(camera, gunVariant ?? undefined);
   const armsReady = createArms(weapon); // parents itself under the weapon's own group - see arms.js/weapon.js's attachToWeapon
   const shootEffects = createShootEffects(scene);
+  const hitDirectionIndicator = createHitDirectionIndicator(gameScreenElement);
   const audio = createAudioManager();
   const audioReady = preloadAudio();
   // matchStart/playMusic now fire once matchAssetsReady resolves below
@@ -343,6 +358,22 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     onMatchEnded(message);
   }
 
+  // Voluntary early exit (hamburger menu's Quit Match button) - distinct
+  // from endMatch() above: this is never server-driven (no 'match-ended'
+  // message arrives for it, see network.js's quitMatch/server's 'quit-match'
+  // handler - a quit is simply not a scored outcome, same as a real
+  // disconnect isn't), so there's nothing to show on the post-match results
+  // screen and this goes straight back to the lobby instead (see app.js's
+  // onQuit wiring - same "skip the results screen" shape as
+  // postMatchScreen.js's own Return to Lobby button). No game-over stinger
+  // either, for the same reason.
+  function quitMatch() {
+    network.quitMatch();
+    stop();
+    onQuit();
+  }
+  quitMatchBtnEl.addEventListener('click', quitMatch);
+
   // Pot changes only ever happen here, in response to server messages -
   // never as a direct result of a local raycast or a local timer. See the
   // comments in shooting.js, extraction.js, and server/src/match/match.js.
@@ -385,11 +416,14 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     },
     // A bot or player's shot connected with US, but didn't kill us -
     // health drops but the match continues. See match.js's applyDamage.
-    'hit': ({ health, maxHealth, hitBy }) => {
+    'hit': ({
+      health, maxHealth, hitBy, shotFrom,
+    }) => {
       console.log(`Hit by ${hitBy} - health now ${health}/${maxHealth}`);
       healthTracker.setHealth(health, maxHealth);
       flashHitDamage();
       playerControls.triggerShake(HIT_SHAKE_INTENSITY, HIT_SHAKE_DURATION_SECONDS);
+      hitDirectionIndicator.trigger(playerControls.getPosition(), playerControls.getYaw(), shotFrom);
       audio.playSfx('hurt');
     },
     // The battle-royale "X remaining" counter - Versus/Private only (see
@@ -422,11 +456,13 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     // THIS player just died but their match keeps going - Coop (until
     // their 3rd death) or Private (unlimited within the timer). Fires
     // immediately on death, well before the actual respawn (see match.js's
-    // beginRespawn/finishRespawn) - shows the countdown banner and loses
-    // whatever unsecured pot was still at risk right away (pot is already
-    // 0 by the time this arrives; securedPot is unaffected and just
-    // re-sent for consistency). The player is untargetable server-side for
-    // this whole window (see match.js's `respawning` flag).
+    // beginRespawn/finishRespawn) - shows the countdown banner. `pot` is
+    // whatever was still unsecured/at-risk at the moment of death, UNCHANGED
+    // by dying itself (see match.js's beginRespawn - a respawn no longer
+    // wipes it, only a permanent elimination does); `securedPot` was never
+    // affected by death either way and is just re-sent for consistency. The
+    // player is untargetable server-side for this whole window (see
+    // match.js's `respawning` flag).
     'respawn-countdown': ({ seconds, pot, securedPot, killedBy }) => {
       startRespawnCountdown(seconds, killedBy);
       potTracker.setSecured(securedPot, pot);
@@ -641,10 +677,13 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     clearTimeout(respawnToastTimeoutId);
     clearInterval(respawnCountdownIntervalId);
     window.removeEventListener('resize', onResize);
+    hamburgerBtnEl.removeEventListener('click', onHamburgerClick);
+    quitMatchBtnEl.removeEventListener('click', quitMatch);
     playerControls.dispose();
     shootingSystem.dispose();
     touchControls?.dispose();
     shootEffects.dispose();
+    hitDirectionIndicator.dispose();
     audio.stopMusic();
     renderer.dispose();
     canvas.remove();

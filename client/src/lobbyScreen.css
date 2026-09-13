@@ -36,8 +36,24 @@
 }
 
 .lobby-header {
-  text-align: center;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 4px;
+}
+/* The titles take the remaining width and center WITHIN that space, not
+   the whole header - centering the whole header (an earlier version of
+   this) put the exit button right on top of the title text, since a wide
+   centered heading starts well left of the header's own midpoint. */
+.lobby-header-titles {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.exit-lobby-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 11px;
 }
 .lobby-title {
   font-family: var(--font-display);

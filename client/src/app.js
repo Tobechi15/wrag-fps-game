@@ -107,7 +107,14 @@ const lobbyScreen = createLobbyScreen(lobbyScreenEl, network, {
     startGame(gameScreenEl, network, players, (matchEndedMessage) => {
       gameScreenEl.hidden = true;
       postMatchScreen.show(matchEndedMessage);
-    }, gunVariant, teamId ?? null, playMode);
+    }, gunVariant, teamId ?? null, playMode, () => {
+      // Quit Match - never a scored outcome (see gameScreen.js's own
+      // comment), so this skips the post-match results screen entirely and
+      // goes straight back to matchmaking, same shape as postMatchScreen's
+      // own Return to Lobby button.
+      gameScreenEl.hidden = true;
+      lobbyScreen.show(playMode);
+    });
   },
 });
 

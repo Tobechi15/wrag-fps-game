@@ -94,6 +94,20 @@ export function createNetworkClient(url, { onOpen } = {}) {
     }));
   }
 
+  // Voluntarily leaves the CURRENT match early (see gameScreen.js's
+  // hamburger-menu Quit Match button) - server-side this is handled exactly
+  // like a disconnect (see index.js's 'quit-match' handler, which calls the
+  // same match.handleDisconnect this player's socket closing would've
+  // triggered anyway), just without actually closing the connection, since
+  // the player is expected to keep using this same tab afterward (back to
+  // the lobby, not the whole page reloading). No sendWhenReady queueing
+  // needed - this can only ever be sent while already mid-match, i.e. long
+  // after the socket is open.
+  function quitMatch() {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: 'quit-match' }));
+  }
+
   // Enters matchmaking - both the initial call from lobbyScreen.js's
   // show() and re-entering after a match ends (eliminated, last-standing,
   // time-limit/survival-ended). The server never joins a connection to
@@ -129,6 +143,6 @@ export function createNetworkClient(url, { onOpen } = {}) {
   }
 
   return {
-    setHandlers, sendPosition, sendShot, joinQueue, createRoom, joinRoom, startRoom, startSurvival,
+    setHandlers, sendPosition, sendShot, quitMatch, joinQueue, createRoom, joinRoom, startRoom, startSurvival,
   };
 }

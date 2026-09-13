@@ -23,6 +23,11 @@ const MODE_SUBTITLES = {
   survival: 'Solo vs. Endless Hostiles',
 };
 
+// Same pattern/fallback as postMatchScreen.js's own copy of this constant
+// (see its comment) - the real deployed dashboard's URL, baked in at build
+// time via VITE_DASHBOARD_URL.
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL ?? 'http://127.0.0.1:5175/dashboard.html';
+
 export function createLobbyScreen(rootElement, network, { onMatchStart }) {
   let localPlayerId = null;
   let currentRoomCode = null;
@@ -30,8 +35,11 @@ export function createLobbyScreen(rootElement, network, { onMatchStart }) {
   rootElement.innerHTML = `
     <div class="lobby">
       <header class="lobby-header">
-        <div class="lobby-title">Deployment Queue</div>
-        <div class="lobby-subtitle" id="lobby-subtitle">${MODE_SUBTITLES.versus}</div>
+        <button class="btn exit-lobby-btn" type="button" id="exit-lobby-btn">Exit Lobby</button>
+        <div class="lobby-header-titles">
+          <div class="lobby-title">Deployment Queue</div>
+          <div class="lobby-subtitle" id="lobby-subtitle">${MODE_SUBTITLES.versus}</div>
+        </div>
       </header>
 
       <section class="stake-panel" id="stake-panel">
@@ -215,6 +223,20 @@ export function createLobbyScreen(rootElement, network, { onMatchStart }) {
     survivalPanelEl.hidden = mode !== 'survival';
     subtitleEl.textContent = MODE_SUBTITLES[mode] ?? MODE_SUBTITLES.versus;
   }
+
+  // Leaves the lobby/matchmaking entirely, back to the dashboard - a full
+  // page navigation (same DASHBOARD_URL destination as postMatchScreen.js's
+  // Back to Dashboard button) rather than a client-side transition, since
+  // there's no other in-app screen to go to from here. No explicit
+  // "leave" message needs sending first - navigating away unloads this
+  // page, which closes the WebSocket, and the server's existing
+  // socket.on('close') handler already calls leaveAllPreMatchQueues for
+  // exactly this case (not yet in a match - see index.js), refunding any
+  // Versus/Coop stake and leaving whatever queue/room this connection was
+  // in, the same as it already does when switching modes.
+  rootElement.querySelector('#exit-lobby-btn').addEventListener('click', () => {
+    window.location.href = DASHBOARD_URL;
+  });
 
   rootElement.querySelector('#create-room-btn').addEventListener('click', () => {
     const stake = Math.max(0, Number.parseInt(roomStakeInputEl.value, 10) || 0);

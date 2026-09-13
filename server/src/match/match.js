@@ -515,7 +515,7 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
         }, botId);
       }
 
-      const died = applyDamage(targetId, bot.callsign);
+      const died = applyDamage(targetId, bot.callsign, DAMAGE_PER_HIT, bot.position);
       if (!died) return;
 
       bot.kills += 1;
@@ -687,8 +687,14 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
   // bot's health bar. `damageAmount` defaults to the flat DAMAGE_PER_HIT -
   // onBotShoot below never passes one (a bot has no real weapon, see
   // WEAPON_STATS above), only handleShotOnEntity does (a real player's shot,
-  // using their own gun's resolved damage).
-  function applyDamage(victimId, attackerCallsign, damageAmount = DAMAGE_PER_HIT) {
+  // using their own gun's resolved damage). `shooterPosition` rides along
+  // in the 'hit' message as `shotFrom` - the client's hit-direction
+  // indicator (see gameScreen.js/hitDirectionIndicator.js) uses it to point
+  // toward whoever's shooting, which matters most exactly when they're NOT
+  // currently on screen. Both callers already have this on hand (the
+  // shooter's own tracked `position`), so it costs nothing new to compute -
+  // just pass it through.
+  function applyDamage(victimId, attackerCallsign, damageAmount = DAMAGE_PER_HIT, shooterPosition = null) {
     const victim = players.get(victimId);
     if (!victim) return false;
 
@@ -701,6 +707,7 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
         health: victim.health,
         maxHealth: MAX_HEALTH,
         hitBy: attackerCallsign,
+        shotFrom: shooterPosition,
       }));
     }
     return false;
@@ -785,7 +792,7 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
     const victim = players.get(victimId);
     if (!victim) return;
 
-    const died = applyDamage(victimId, shooterPlayer.callsign, damageAmount);
+    const died = applyDamage(victimId, shooterPlayer.callsign, damageAmount, shooterPlayer.position);
 
     if (!died) {
       // Registered as a hit, but they're still alive - no kill reward yet.
@@ -832,13 +839,19 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
 
   // Starts a Coop/Private respawn - the FIRST of two phases (see
   // finishRespawn below), fired the instant death happens rather than
-  // resetting the player immediately. Loses whatever pot was still at risk
-  // right away (dying loses it, exactly like a permanent elimination does -
-  // see eliminatePlayer's finalPot = securedPot, unsecured lost - without
-  // this, respawning made death consequence-free for points), marks the
-  // player `respawning` (see getRealPlayers/otherEntities above - makes
-  // them untargetable for the rest of the delay, so a second "kill" can't
-  // land on someone already dead and stack a second respawn on top of the
+  // resetting the player immediately. Per the user: match points (pot) are
+  // PERSONAL and earned per individual kill - a respawn isn't the end of
+  // your match, just a setback, so unsecured pot now survives a respawn
+  // intact instead of being wiped like a permanent elimination (that used
+  // to happen here - see eliminatePlayer's finalPot = securedPot for the
+  // one place unsecured pot genuinely IS still lost: running out of lives
+  // for real). The kill SCORE shown in the Coop status bar is the separate,
+  // general/team-wide consequence of dying - a death still costs nothing
+  // there directly, but every respawn is a stretch of time NOT scoring
+  // kills for the team, which is the real cost now. Marks the player
+  // `respawning` (see getRealPlayers/otherEntities above - makes them
+  // untargetable for the rest of the delay, so a second "kill" can't land
+  // on someone already dead and stack a second respawn on top of the
   // first), tells the player themselves how long the countdown is (client
   // shows a banner - see gameScreen.js's 'respawn-countdown' handler), and
   // tells everyone else this id just went down (the normal death-fall
@@ -849,11 +862,9 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
     const player = players.get(id);
     if (!player || player.isBot) return;
 
-    const lostPot = player.pot;
-    player.pot = 0;
     player.respawning = true;
 
-    console.log(`${player.callsign} died (death ${player.deathCount}/${modeConfig.maxDeaths === Infinity ? '∞' : modeConfig.maxDeaths}, lost ${lostPot} unsecured pot) - respawning in ${RESPAWN_DELAY_MS / 1000}s in match ${matchId}`);
+    console.log(`${player.callsign} died (death ${player.deathCount}/${modeConfig.maxDeaths === Infinity ? '∞' : modeConfig.maxDeaths}, keeping ${player.pot} unsecured pot) - respawning in ${RESPAWN_DELAY_MS / 1000}s in match ${matchId}`);
 
     if (player.socket) {
       player.socket.send(JSON.stringify({
@@ -871,14 +882,14 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
   }
 
   // Second phase - actually brings the player back: resets health/
-  // position/zone-progress (kills/deathCount stay as-is; pot was already
-  // zeroed in beginRespawn above) and clears `respawning` so they're a
-  // valid target again. Guarded the same way every other player-scoped
-  // function here is - if they disconnected during the delay, `players`
-  // no longer has them and this is a safe no-op. The player themselves
-  // gets a 'respawn' message (their own match keeps running, including the
-  // now-zeroed pot so their HUD updates) - everyone else gets
-  // 'player-respawned' so their view of this id reappears.
+  // position/zone-progress (kills/deathCount/pot all stay exactly as they
+  // were - see beginRespawn's comment on why pot in particular survives a
+  // respawn now) and clears `respawning` so they're a valid target again.
+  // Guarded the same way every other player-scoped function here is - if
+  // they disconnected during the delay, `players` no longer has them and
+  // this is a safe no-op. The player themselves gets a 'respawn' message
+  // (their own match keeps running) - everyone else gets 'player-respawned'
+  // so their view of this id reappears.
   function finishRespawn(id, killedByCallsign) {
     const player = players.get(id);
     if (!player || player.isBot) return;

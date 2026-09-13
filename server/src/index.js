@@ -275,6 +275,21 @@ wss.on('connection', (socket, request) => {
       match.handleMove(id, message.position, message.yaw);
     } else if (message.type === 'shoot' && message.origin && message.direction) {
       match.handleShoot(id, message.origin, message.direction);
+    } else if (message.type === 'quit-match') {
+      // Voluntary early exit (see client/src/gameScreen.js's hamburger-menu
+      // Quit Match button) - handled exactly like this socket had actually
+      // disconnected (same forfeit-and-clean-up behavior a real disconnect
+      // already gets, see match.js's handleDisconnect - no stake refund,
+      // no match-history row, just removed from the match), except the
+      // socket itself stays open, since the player is expected to keep
+      // using this same tab/connection afterward (back to this client's own
+      // lobby screen, not a full page reload). Clearing socket.matchId is
+      // what actually makes that possible - without it, every message this
+      // connection sends afterward would keep routing here (`const match =
+      // matches.get(socket.matchId)` above) to a match that no longer has
+      // this player in it, instead of being treated as pre-match again.
+      match.handleDisconnect(id);
+      socket.matchId = null;
     }
   });
 
