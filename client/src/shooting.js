@@ -4,13 +4,6 @@ import * as THREE from 'three';
 const raycaster = new THREE.Raycaster();
 const SCREEN_CENTER = new THREE.Vector2(0, 0); // NDC (0,0) = dead center = crosshair
 
-// One universal magazine size/reload time regardless of gun variant - this
-// project has no per-weapon ammo tuning yet (weapon.js's GUN_VARIANTS only
-// differ in visual model/scale), so a single shared value is the whole
-// scope here rather than inventing a per-gun system nothing else needs yet.
-const MAGAZINE_SIZE = 16;
-const RELOAD_DURATION_MS = 1800;
-
 // Wires up "click to fire". On every left-click while the mouse is locked,
 // two things happen:
 //   1. A LOCAL raycast against the visible target meshes runs immediately,
@@ -30,8 +23,18 @@ const RELOAD_DURATION_MS = 1800;
 // place; it's a fairness/feel feature (no infinite full-auto with no
 // downside), not a server-enforced rule, matching this project's existing
 // split between client-predicted feel and server-authoritative outcomes.
+//
+// magazineSize/reloadDurationMs/fireCooldownMs come from the CALLER
+// (gameScreen.js, reading weapon.js's resolved GUN_VARIANTS entry for
+// whatever gun this player is actually holding) rather than being fixed
+// constants here - a bigger gun takes longer to empty (bigger magazine)
+// AND longer to physically reload, and rate of fire (fireCooldownMs, the
+// minimum time between shots) is its own per-weapon "lethality" knob on
+// top of that - an assault rifle and a bolt-action sniper shouldn't be
+// spammable at the same speed just because the player can click/tap that
+// fast.
 export function createShootingSystem(camera, targets, domElement, {
-  onLocalHit, onFire, onDryFire, onReloadStart, onReloadEnd,
+  onLocalHit, onFire, onDryFire, onReloadStart, onReloadEnd, magazineSize, reloadDurationMs, fireCooldownMs,
 }) {
   // Set while waiting to respawn (see gameScreen.js's 'respawn-countdown'/
   // 'respawn' handlers) - a "dead" player shouldn't be able to keep firing
@@ -40,19 +43,24 @@ export function createShootingSystem(camera, targets, domElement, {
   // covered by one gate.
   let locked = false;
 
-  let ammoInMag = MAGAZINE_SIZE;
+  let ammoInMag = magazineSize;
   let isReloading = false;
   let reloadTimeoutId = null;
+  // Rate-of-fire gate - the mechanical cycle time real held-trigger
+  // weapons enforce whether or not the player's own click/tap rate would
+  // allow faster. -Infinity so the very first shot of a match is never
+  // blocked waiting on a cooldown that hasn't started yet.
+  let lastFireAt = -Infinity;
 
   function startReload() {
     isReloading = true;
-    onReloadStart(RELOAD_DURATION_MS);
+    onReloadStart(reloadDurationMs);
     reloadTimeoutId = setTimeout(() => {
       isReloading = false;
-      ammoInMag = MAGAZINE_SIZE;
+      ammoInMag = magazineSize;
       reloadTimeoutId = null;
       onReloadEnd();
-    }, RELOAD_DURATION_MS);
+    }, reloadDurationMs);
   }
 
   // Cancels any in-progress reload and resets to a full magazine - called
@@ -66,7 +74,7 @@ export function createShootingSystem(camera, targets, domElement, {
       isReloading = false;
       onReloadEnd();
     }
-    ammoInMag = MAGAZINE_SIZE;
+    ammoInMag = magazineSize;
   }
 
   // The actual raycast-and-report logic, shared by the mouse path below
@@ -79,6 +87,13 @@ export function createShootingSystem(camera, targets, domElement, {
       onDryFire(); // the empty-mag click sound - no shot, no ammo change, nothing sent to the server
       return;
     }
+    // Firing faster than this gun's mechanical cycle time allows - a
+    // silent no-op, not a dry-fire click (there's ammo, the trigger just
+    // hasn't reset yet - a real gun doesn't make an "I'm too fast" sound
+    // either, it just doesn't fire again yet).
+    const now = performance.now();
+    if (now - lastFireAt < fireCooldownMs) return;
+    lastFireAt = now;
 
     raycaster.setFromCamera(SCREEN_CENTER, camera);
     onFire(raycaster.ray.origin, raycaster.ray.direction);
@@ -92,6 +107,18 @@ export function createShootingSystem(camera, targets, domElement, {
     if (ammoInMag <= 0) startReload();
   }
 
+  // Manual reload, "at your own convenience" - unlike the automatic
+  // reload above (only ever triggered by emptying the mag on a shot), this
+  // can fire with any partial mag, not just an empty one. Two guards, both
+  // just no-ops (no sound, no animation) rather than errors: already
+  // reloading (can't double-reload), and already full (nothing to do -
+  // playing the reload sound/animation over an unchanged full mag would
+  // just be confusing, not a real action).
+  function reload() {
+    if (locked || isReloading || ammoInMag >= magazineSize) return;
+    startReload();
+  }
+
   function onMouseDown(event) {
     const isLeftClick = event.button === 0;
     const isPointerLocked = document.pointerLockElement === domElement;
@@ -99,10 +126,22 @@ export function createShootingSystem(camera, targets, domElement, {
     fire();
   }
 
+  // Keyboard reload (desktop) - 'R', gated on pointer lock the same way
+  // the mouse's fire path is, so it only ever does anything while actually
+  // in the gameplay view (not, say, while the click-to-play overlay is
+  // still showing pre-lock).
+  function onKeyDown(event) {
+    if (event.code !== 'KeyR') return;
+    if (document.pointerLockElement !== domElement) return;
+    reload();
+  }
+
   domElement.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('keydown', onKeyDown);
 
   function dispose() {
     domElement.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('keydown', onKeyDown);
     clearTimeout(reloadTimeoutId);
   }
 
@@ -112,6 +151,6 @@ export function createShootingSystem(camera, targets, domElement, {
   }
 
   return {
-    dispose, fire, setLocked,
+    dispose, fire, reload, setLocked,
   };
 }

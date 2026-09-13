@@ -99,6 +99,14 @@
   color: var(--color-success);
   border-color: var(--color-success);
 }
+/* Smaller than Jump/Crouch - used far less often (once every magazine's
+   worth of shots, not every jump/crouch), so it gets a smaller footprint
+   in the cluster rather than competing for thumb space at the same size. */
+.touch-btn-reload {
+  width: clamp(48px, 10vmin, 70px);
+  height: clamp(48px, 10vmin, 70px);
+  font-size: clamp(9px, 2vmin, 12px);
+}
 
 /* Blocking full-screen prompt while the device is actually in portrait -
    see touchControls.js's portraitQuery. Sits above every other element in

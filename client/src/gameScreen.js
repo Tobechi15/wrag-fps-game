@@ -533,14 +533,22 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
       audio.playSfx('reload');
     },
     onReloadEnd: () => endReloadAnimation(),
+    // Per-weapon (see weapon.js's GUN_VARIANTS) - already resolved/
+    // fallback-applied by createWeapon, so read straight off the handle
+    // rather than re-doing that lookup here.
+    magazineSize: weapon.magazineSize,
+    reloadDurationMs: weapon.reloadDurationMs,
+    fireCooldownMs: weapon.fireCooldownMs,
   });
 
   // Mobile touch controls - only ever constructed when isTouchDevice()
   // fires, so desktop's mouse/keyboard path is completely untouched.
-  // fire() is the exact same raycast-and-report logic the mouse's
-  // pointer-lock-gated click already uses (see shooting.js).
+  // fire()/reload() are the exact same logic the mouse/keyboard path
+  // already uses (see shooting.js) - touchControls.js just calls them
+  // directly instead of gating on Pointer Lock (unreliable on mobile
+  // Safari, so touch never uses it at all).
   const touchControls = isTouchDevice()
-    ? createTouchControls(gameScreenElement, playerControls, shootingSystem.fire)
+    ? createTouchControls(gameScreenElement, playerControls, shootingSystem.fire, shootingSystem.reload)
     : null;
 
   // Keep the render resolution and camera aspect ratio in sync with the window.

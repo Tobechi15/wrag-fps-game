@@ -39,12 +39,12 @@ function findTouchById(touchList, id) {
 // player.js) - this feeds it the same setVirtualMoveInput/
 // setVirtualCrouchHeld/requestJump/applyLookDelta hooks WASD/mouse/Space
 // already drive, so player.js has one single movement/look/jump/crouch
-// implementation regardless of input source. `fire` is
-// shootingSystem.fire() (see shooting.js) - the same raycast-and-report
-// logic the mouse's click handler uses, just invoked directly instead of
-// through a pointer-lock-gated mousedown (Pointer Lock is unreliable on
+// implementation regardless of input source. `fire`/`reload` are
+// shootingSystem.fire()/reload() (see shooting.js) - the same logic the
+// mouse/keyboard path uses, just invoked directly instead of through a
+// pointer-lock-gated mousedown/keydown (Pointer Lock is unreliable on
 // mobile Safari, so touch never uses it at all).
-export function createTouchControls(gameScreenElement, playerControls, fire) {
+export function createTouchControls(gameScreenElement, playerControls, fire, reload) {
   const root = document.createElement('div');
   root.id = 'touch-controls';
   root.innerHTML = `
@@ -55,6 +55,7 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
     </div>
     <div class="touch-look-zone" id="touch-look-zone"></div>
     <div class="touch-buttons">
+      <button class="touch-btn touch-btn-reload" id="touch-btn-reload" type="button">Reload</button>
       <button class="touch-btn touch-btn-crouch" id="touch-btn-crouch" type="button">Crouch</button>
       <button class="touch-btn touch-btn-jump" id="touch-btn-jump" type="button">Jump</button>
       <button class="touch-btn touch-btn-fire" id="touch-btn-fire" type="button">Fire</button>
@@ -75,6 +76,7 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
   const lookZone = root.querySelector('#touch-look-zone');
   const orientationOverlayEl = root.querySelector('#touch-orientation-overlay');
   const autoRotateTipEl = root.querySelector('#touch-autorotate-tip');
+  const reloadBtn = root.querySelector('#touch-btn-reload');
   const fireBtn = root.querySelector('#touch-btn-fire');
   const jumpBtn = root.querySelector('#touch-btn-jump');
   const crouchBtn = root.querySelector('#touch-btn-crouch');
@@ -196,6 +198,15 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
   }
   jumpBtn.addEventListener('touchstart', onJumpTouchStart, { passive: false });
 
+  // Manual reload - same "at your own convenience" action the keyboard's R
+  // key triggers (see shooting.js's reload()); a no-op if already full or
+  // already reloading, so mashing this button is harmless.
+  function onReloadTouchStart(event) {
+    event.preventDefault();
+    reload();
+  }
+  reloadBtn.addEventListener('touchstart', onReloadTouchStart, { passive: false });
+
   // Crouch: toggle style (press to crouch, press again to stand) - see
   // player.js's virtualCrouchHeld comment for why, vs. a held button.
   let crouching = false;
@@ -270,6 +281,7 @@ export function createTouchControls(gameScreenElement, playerControls, fire) {
     lookZone.removeEventListener('touchcancel', onLookTouchEnd);
     fireBtn.removeEventListener('touchstart', onFireTouchStart);
     jumpBtn.removeEventListener('touchstart', onJumpTouchStart);
+    reloadBtn.removeEventListener('touchstart', onReloadTouchStart);
     crouchBtn.removeEventListener('touchstart', onCrouchTouchStart);
     playerControls.setVirtualMoveInput(0, 0);
     playerControls.setVirtualCrouchHeld(false);
