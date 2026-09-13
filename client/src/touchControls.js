@@ -14,17 +14,20 @@ import * as THREE from 'three';
 const AUTO_ROTATE_TIP_VISIBLE_MS = 4000;
 const AUTO_ROTATE_TIP_FADE_MS = 700;
 
-// A plain look-drag felt sluggish for tracking/flicking onto a target while
-// actively moving (the joystick held off-center) - this boosts only the
-// horizontal (yaw/"sideway turning") component of touch look-drag while
-// moving, leaving vertical look and the mouse/keyboard path (player.js's
-// own onMouseMove -> applyLookDelta) completely untouched.
-const TOUCH_TURN_BOOST_WHILE_MOVING = 1.25;
+// A plain look-drag felt sluggish turning side to side, worse still while
+// actively moving (running with the joystick held off-center made steering
+// hard to keep up with) - both boost only the horizontal (yaw/"sideway
+// turning") component of touch look-drag, stacking on top of each other
+// while moving (BASE alone applies at a standstill; BASE * WHILE_MOVING
+// applies while running). Vertical look and the mouse/keyboard path
+// (player.js's own onMouseMove -> applyLookDelta) are completely untouched.
+const TOUCH_YAW_BOOST_BASE = 1.35;
+const TOUCH_YAW_BOOST_WHILE_MOVING = 1.6;
 
 // Aim assist ("magnetism") - touch has no equivalent to a mouse's pixel-
 // precise pointer, so landing exactly on a moving target through a finger
 // drag is much harder than with a mouse. While actively look-dragging, if
-// the nearest enemy's projected screen position is within
+// the nearest NEARBY enemy's projected screen position is within
 // AIM_ASSIST_RADIUS_PX of the crosshair (screen center - see shooting.js,
 // which always fires dead-center), a small extra nudge is added toward it
 // on top of the player's own drag - the same applyLookDelta path normal
@@ -33,17 +36,29 @@ const TOUCH_TURN_BOOST_WHILE_MOVING = 1.25;
 // look (player.js's onMouseMove) is completely untouched - precise pointer
 // aim doesn't need or want this, and unwanted "magnetism" on a mouse is
 // exactly the kind of thing PC shooter players actively dislike.
+//
+// AIM_ASSIST_MAX_DISTANCE_METERS gates this on actual world-space distance,
+// not just screen-space pixels - a distant enemy can easily project onto a
+// spot right next to the crosshair (small on screen, but nowhere near the
+// player), and pulling the view toward them made ordinary look-around/
+// steering while just running feel like it was fighting back, per direct
+// feedback after trying it. Restricting assist to CLOSE targets only means
+// it can only ever kick in during an actual close-range engagement, never
+// while just moving through the world with an enemy incidentally near the
+// crosshair at a distance.
 const AIM_ASSIST_RADIUS_PX = 60;
 const AIM_ASSIST_DEADZONE_PX = 4; // already close enough - no nudge, so this never fights a final fine adjustment right at the target
 const AIM_ASSIST_STRENGTH = 0.18; // fraction of the remaining pixel offset pulled in per touch-move event
+const AIM_ASSIST_MAX_DISTANCE_METERS = 12;
 
 // Reused scratch vector - projecting a target to screen space every
 // touch-move event shouldn't allocate a new Vector3 each time.
 const projectedPoint = new THREE.Vector3();
 
-// Finds the on-screen-nearest aim-assist candidate (see remotePlayers.js's
-// getAimAssistTargets) and returns a small look-delta nudge toward it, or
-// null if none are close enough to the crosshair (or none exist, or
+// Finds the on-screen-nearest NEARBY aim-assist candidate (see
+// remotePlayers.js's getAimAssistTargets) and returns a small look-delta
+// nudge toward it, or null if none are both close enough in the world AND
+// close enough on screen to the crosshair (or none exist, or
 // getAimAssistTargets wasn't provided at all - e.g. a caller that hasn't
 // wired a remote-player manager up yet).
 function findAimAssistDelta(camera, getAimAssistTargets) {
@@ -58,6 +73,7 @@ function findAimAssistDelta(camera, getAimAssistTargets) {
   let bestDistSq = Infinity;
 
   for (const worldPoint of targets) {
+    if (camera.position.distanceTo(worldPoint) > AIM_ASSIST_MAX_DISTANCE_METERS) continue; // too far away - see the module comment above
     projectedPoint.copy(worldPoint).project(camera);
     if (projectedPoint.z < -1 || projectedPoint.z > 1) continue; // behind the camera (or outside clip range) - never assist toward something not actually visible
     const screenX = (projectedPoint.x + 1) * halfWidth;
@@ -243,7 +259,9 @@ export function createTouchControls(gameScreenElement, playerControls, fire, rel
     lastLookY = touch.clientY;
     // getSway().isMoving reflects the joystick's current movement state
     // (see player.js) - cheap to read every move event, no caching needed.
-    const turnBoost = playerControls.getSway().isMoving ? TOUCH_TURN_BOOST_WHILE_MOVING : 1;
+    const turnBoost = playerControls.getSway().isMoving
+      ? TOUCH_YAW_BOOST_BASE * TOUCH_YAW_BOOST_WHILE_MOVING
+      : TOUCH_YAW_BOOST_BASE;
     playerControls.applyLookDelta(dx * turnBoost, dy);
 
     // Aim assist - see findAimAssistDelta above. Applied AFTER the player's
