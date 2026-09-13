@@ -11,11 +11,26 @@ registerServiceWorker();
 // The actual, already-working game client (Part A). The dashboard's Play
 // button fetches a one-time token first (see auth-client.js's
 // fetchPlayToken) so the game server can attach this match's result to the
-// real account instead of playing fully anonymously. VITE_GAME_CLIENT_URL
-// (see .env.example) is the real deployed client's URL, baked in at build
-// time - set as a Vercel project env var; falls back to the local dev
-// default when unset.
-const GAME_CLIENT_URL = import.meta.env.VITE_GAME_CLIENT_URL ?? 'http://127.0.0.1:5173/';
+// real account instead of playing fully anonymously.
+//
+// '/play/' - NOT the client's own separate domain - on purpose: the client
+// is reverse-proxied to this same origin under that path now (see
+// vercel.json + client/vite.config.js's `base` + vite.config.js's dev
+// proxy, all three added together for this one reason) specifically so an
+// installed "Add to Home Screen" PWA stays in standalone/app mode all the
+// way through an actual match. A browser drops a standalone-mode PWA back
+// into normal browser chrome (URL bar, back button) the instant it
+// navigates to a different origin - that's exactly what deploying into a
+// match used to do when this pointed at the client's own domain directly.
+// The trailing slash matters - the client's dev server (custom `base`)
+// 404s on the bare path without it, confirmed directly; production's
+// client/vercel.json has an explicit rule for the bare path too, but there
+// was no reason to rely on two different behaviors between dev and prod
+// when just always including the slash works everywhere. VITE_GAME_CLIENT_URL
+// (see .env.example) can still override this - e.g. for a deployment that
+// genuinely can't proxy the client under its own domain - but '/play/' is
+// now the default/recommended value, not the client's separate origin.
+const GAME_CLIENT_URL = import.meta.env.VITE_GAME_CLIENT_URL ?? '/play/';
 
 const ROTATION_SPEED = 0.4; // radians/second
 const BOB_AMPLITUDE = 0.035;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './assetPath.js';
 
 // Real flash sprite art (CC0-adjacent asset pack, "BinbunVFX Muzzle Flash")
 // - the pack itself ships as Godot scenes/materials (.tscn/.tres/.gd),
@@ -14,7 +15,7 @@ const MUZZLE_FLASH_TEXTURE_URLS = [
   '/assets/effects/muzzleFlash/flash_front_02.png',
   '/assets/effects/muzzleFlash/flash_front_03.png',
   '/assets/effects/muzzleFlash/flash_front_04.png',
-];
+].map(assetUrl);
 
 const MUZZLE_FLASH_LIFESPAN = 0.05; // seconds
 const MUZZLE_FLASH_SIZE = 0.4;

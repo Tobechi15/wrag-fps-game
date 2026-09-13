@@ -1,3 +1,5 @@
+import { assetUrl } from './assetPath.js';
+
 // Web Audio API-based sound manager - no Web Audio graph needed for a
 // prototype's worth of one-shot SFX plus a single looping music track... or
 // so it seemed. The original version of this file used `new Audio(url)` per
@@ -62,6 +64,14 @@ const SFX_URLS = {
   // time" reasoning as gunshotPlayer/hurt/dying above.
   reload: ['/audio/gun-reload.mp3', '/audio/gun-reload-2.mp3'],
 };
+// Prefixes every URL above with this build's actual base path (see
+// assetPath.js) - applied here, after the fact, rather than wrapping each
+// value individually above, so the per-sound comments stay attached to
+// their original literal instead of getting buried in assetUrl() calls.
+for (const key of Object.keys(SFX_URLS)) {
+  const value = SFX_URLS[key];
+  SFX_URLS[key] = Array.isArray(value) ? value.map(assetUrl) : assetUrl(value);
+}
 const SFX_VOLUMES = {
   gunshotPlayer: 0.6,
   gunshotRemote: 0.45,
@@ -86,7 +96,7 @@ const SFX_VOLUMES = {
 // repeating back-to-back at the wrap-around point.
 const MUSIC_PLAYLIST = [
   '/audio/action-bg-music.mp3',
-];
+].map(assetUrl);
 const MUSIC_VOLUME = 0.22; // low enough to sit under SFX, not compete with it
 
 // Fisher-Yates - an unbiased shuffle (unlike sorting on Math.random(),

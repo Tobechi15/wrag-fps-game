@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { assetUrl } from './assetPath.js';
 
 // Real weapon models (CC0, "Ultimate Gun Pack" by Quaternius), FBX format
 // (this pack ships no glTF export). Copied into public/ so Vite serves
@@ -39,13 +40,13 @@ export const GUN_VARIANTS = {
   // ~500 RPM equivalent - fast, full-auto feel, holds up under rapid
   // clicking/tapping without every click actually registering as a shot.
   AssaultRifle_1: {
-    url: '/assets/weapons/AssaultRifle_1.fbx', targetLength: 0.9, label: 'Assault Rifle', magazineSize: 30, reloadDurationMs: 2000, fireCooldownMs: 120,
+    url: assetUrl('/assets/weapons/AssaultRifle_1.fbx'), targetLength: 0.9, label: 'Assault Rifle', magazineSize: 30, reloadDurationMs: 2000, fireCooldownMs: 120,
   },
   // ~270 RPM equivalent - a controlled semi-auto pace, noticeably slower
   // than the rifle but still fast enough to feel responsive in a close
   // fight.
   Pistol_1: {
-    url: '/assets/weapons/Pistol_1.fbx', targetLength: 0.32, label: 'Pistol', magazineSize: 12, reloadDurationMs: 1200, fireCooldownMs: 220,
+    url: assetUrl('/assets/weapons/Pistol_1.fbx'), targetLength: 0.32, label: 'Pistol', magazineSize: 12, reloadDurationMs: 1200, fireCooldownMs: 220,
   },
   // Fewer shells AND a slower reload than the pistol despite the smaller
   // magazine - a real shotgun's reload is bottlenecked by feeding it
@@ -53,7 +54,7 @@ export const GUN_VARIANTS = {
   // shell), not by round count. Pump/break-action rate of fire - the
   // slowest here besides the sniper.
   Shotgun_1: {
-    url: '/assets/weapons/Shotgun_1.fbx', targetLength: 1.0, label: 'Shotgun', magazineSize: 6, reloadDurationMs: 2500, fireCooldownMs: 650,
+    url: assetUrl('/assets/weapons/Shotgun_1.fbx'), targetLength: 1.0, label: 'Shotgun', magazineSize: 6, reloadDurationMs: 2500, fireCooldownMs: 650,
   },
   // Smallest magazine AND the slowest reload of all four - a bolt-action
   // sniper's reload is deliberately the most punishing. Slowest rate of
@@ -61,7 +62,7 @@ export const GUN_VARIANTS = {
   // before the next, matching a bolt-action's actual cycle time rather
   // than letting it be spammed like the other three.
   SniperRifle_1: {
-    url: '/assets/weapons/SniperRifle_1.fbx', targetLength: 1.2, label: 'Sniper Rifle', magazineSize: 5, reloadDurationMs: 2800, fireCooldownMs: 1100,
+    url: assetUrl('/assets/weapons/SniperRifle_1.fbx'), targetLength: 1.2, label: 'Sniper Rifle', magazineSize: 5, reloadDurationMs: 2800, fireCooldownMs: 1100,
   },
 };
 export const DEFAULT_GUN_VARIANT = 'AssaultRifle_1';

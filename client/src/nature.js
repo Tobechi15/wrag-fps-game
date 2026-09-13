@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { WALLS, dynamicObstacles } from './map.js';
+import { assetUrl } from './assetPath.js';
 
 // Environmental dressing (CC0, "Stylized Nature MegaKit" by Quaternius)
 // scattered across the whole arena - now that map.js's WALLS is just a
@@ -24,7 +25,10 @@ import { WALLS, dynamicObstacles } from './map.js';
 // ~6.5m tall - checked against the source .gltf's own bounding box), so no
 // rescaling for those; grass is scaled down some (see GRASS_SCALE_RANGE) -
 // its raw authored height reads more like reeds than lawn grass otherwise.
-const PROP_URLS = {
+// Wrapped in assetUrl (see that module) so every path resolves correctly
+// whether this client is served from its own root (dev) or reverse-proxied
+// under <site>/play/ (production - see vite.config.js's `base`).
+const PROP_URLS = Object.fromEntries(Object.entries({
   tree1: '/assets/nature/CommonTree_1.gltf',
   tree2: '/assets/nature/CommonTree_2.gltf',
   tree3: '/assets/nature/CommonTree_3.gltf',
@@ -41,7 +45,7 @@ const PROP_URLS = {
   grassCommonTall: '/assets/nature/Grass_Common_Tall.gltf',
   grassWispyShort: '/assets/nature/Grass_Wispy_Short.gltf',
   grassWispyTall: '/assets/nature/Grass_Wispy_Tall.gltf',
-};
+}).map(([key, path]) => [key, assetUrl(path)]));
 
 const TREE_KEYS = new Set(['tree1', 'tree2', 'tree3', 'tree4', 'tree5', 'pine1', 'pine2', 'pine3']);
 const ROCK_KEYS = new Set(['rock1', 'rock2', 'rock3']);

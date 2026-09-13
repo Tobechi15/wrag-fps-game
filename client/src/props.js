@@ -1,4 +1,5 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { assetUrl } from './assetPath.js';
 
 // Decorative set-dressing (CC0, Kenney's Platformer Kit) scattered near the
 // map's existing cover (see map.js's WALLS) - purely visual. Already
@@ -9,14 +10,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 // cosmetic gap for now, not a gameplay-affecting one - a real per-prop
 // collider is a reasonable follow-up if that turns out to bother anyone in
 // practice, but wasn't worth the added complexity for a first pass.
-const PROP_URLS = {
+const PROP_URLS = Object.fromEntries(Object.entries({
   crate: '/assets/props/crate.glb',
   crateStrong: '/assets/props/crate-strong.glb',
   barrel: '/assets/props/barrel.glb',
   fenceStraight: '/assets/props/fence-straight.glb',
   fenceCorner: '/assets/props/fence-corner.glb',
   chest: '/assets/props/chest.glb',
-};
+}).map(([key, path]) => [key, assetUrl(path)]));
 
 // Hand-placed next to (not inside) the cover pieces from map.js's WALLS,
 // e.g. the west bunker at x:-8..-4,z:-2.5..0.5 gets a crate/barrel just

@@ -3,6 +3,14 @@
     {
       "source": "/api/(.*)",
       "destination": "https://wrag-fps-game.onrender.com/api/$1"
+    },
+    {
+      "source": "/play/(.*)",
+      "destination": "https://wrag-fps-client.vercel.app/play/$1"
+    },
+    {
+      "source": "/play",
+      "destination": "https://wrag-fps-client.vercel.app/play"
     }
   ]
 }

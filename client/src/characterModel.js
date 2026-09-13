@@ -1,5 +1,6 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { assetUrl } from './assetPath.js';
 
 // Real, animated character models (CC0, "Ultimate Modular Men" by
 // Quaternius) - each a single self-contained .gltf (embedded base64
@@ -18,7 +19,7 @@ export const CHARACTER_VARIANTS = ['Swat', 'Punk', 'Worker', 'Casual_2'];
 export const DEFAULT_CHARACTER_VARIANT = 'Swat';
 
 function urlFor(variant) {
-  return `/assets/characters/${variant}.gltf`;
+  return assetUrl(`/assets/characters/${variant}.gltf`);
 }
 
 const loader = new GLTFLoader();

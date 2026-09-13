@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { assetUrl } from './assetPath.js';
 
 // First-person arms (a dedicated arms/hands model, not the third-person
 // character body) so the weapon reads as actually held rather than
@@ -23,8 +24,8 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 // centering anything - also verified numerically in that same Node
 // harness (the posed hands land symmetric, forward, and level with each
 // other) before writing this file, not just reasoned about.
-const ARMS_URL = '/assets/arms/Arms.fbx';
-const TEXTURE_BASE = '/assets/arms/';
+const ARMS_URL = assetUrl('/assets/arms/Arms.fbx');
+const TEXTURE_BASE = assetUrl('/assets/arms/');
 
 // Bone rotations (radians, THREE's default XYZ Euler order) that swing the
 // T-pose arms forward into a mirrored two-handed reach - found by testing

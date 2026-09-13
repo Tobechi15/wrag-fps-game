@@ -47,6 +47,19 @@ export default defineConfig({
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
       },
+      // Local-dev mirror of production's site/vercel.json + client/vercel.json
+      // /play rewrite chain (see both files' own comments for the full
+      // reasoning - keeping the game client same-origin with this dashboard
+      // so an installed PWA stays in standalone mode through an actual
+      // match, not just on the dashboard). No path rewrite needed - the
+      // client's own dev server ALSO serves everything under /play/ (see
+      // client/vite.config.js's `base`, unconditional in dev and
+      // production alike specifically so this proxy and the client agree
+      // on the same prefix without needing to translate between them).
+      '/play': {
+        target: 'http://127.0.0.1:5173',
+        changeOrigin: true,
+      },
     },
   },
 });
