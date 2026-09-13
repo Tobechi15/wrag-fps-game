@@ -52,8 +52,27 @@ async function initDashboard() {
   wireLoadoutSelector(stage.updatePreview);
   loadDashboardSummary();
 
+  // Every browser requires a user gesture on THIS page before it'll let
+  // audio actually play - calling playMusic() here, immediately on page
+  // load, has no gesture to point to yet (a click on the previous page,
+  // e.g. login's submit button, doesn't carry over), so the browser
+  // silently rejects it and audio.js's own .catch(() => {}) swallows that
+  // with no visible sign anything failed. Try immediately anyway (harmless
+  // if blocked, and covers a browser that's lenient about it, or a real
+  // click already in flight), but ALSO start on the first genuine
+  // interaction with this page - whichever happens first actually starts
+  // the music, and the deferred listener otherwise never fires again.
   const audio = createAudioManager();
   audio.playMusic();
+  const startMusicOnFirstInteraction = () => {
+    audio.playMusic(); // idempotent - playMusic() itself no-ops if music is already going
+    document.removeEventListener('click', startMusicOnFirstInteraction);
+    document.removeEventListener('keydown', startMusicOnFirstInteraction);
+    document.removeEventListener('touchstart', startMusicOnFirstInteraction);
+  };
+  document.addEventListener('click', startMusicOnFirstInteraction);
+  document.addEventListener('keydown', startMusicOnFirstInteraction);
+  document.addEventListener('touchstart', startMusicOnFirstInteraction);
 }
 
 // Fetches a one-time play token, then navigates into the real game client
