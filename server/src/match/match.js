@@ -24,7 +24,35 @@ const MATCH_TIME_LIMIT_MS = Number(process.env.MATCH_TIME_LIMIT_MINUTES ?? 3) * 
 const RESPAWN_DELAY_MS = Number(process.env.RESPAWN_DELAY_SECONDS ?? 5) * 1000;
 
 const MAX_HEALTH = 100;
-const DAMAGE_PER_HIT = 25; // 4 hits to kill - no instant one-shot elimination
+const DAMAGE_PER_HIT = 25; // 4 hits to kill - no instant one-shot elimination - the default for any weapon not listed in WEAPON_STATS below
+
+// Per-weapon damage/range overrides, keyed by client/src/weapon.js's
+// GUN_VARIANTS keys (the ?gun= query param - see index.js). Only the two
+// weapons that need a real gameplay difference are listed here; anything
+// else (AssaultRifle_1/Pistol_1, an unrecognized value, or null - a bot,
+// which never equips a real loadout) falls back to DEFAULT_WEAPON_STATS,
+// i.e. today's unchanged flat damage with no range limit at all.
+//
+// Both listed weapons one-shot a full-health player (damage >= MAX_HEALTH),
+// per the user's "one shot can wipe whole life" ask - the trade-off between
+// them is purely range: Shotgun_1's maxRangeMeters means a shot that would
+// otherwise have hit (the ray genuinely intersects the target's hitbox -
+// see hitRegistration.js) is instead treated as a miss once the target is
+// too far away, exactly like the shot's pellets losing all their energy
+// past that distance; SniperRifle_1 has no such cap (`null`), so it one-
+// shots at any range this map supports. maxRangeMeters is checked against
+// the SAME distance hitRegistration.js's findClosestHitEntity already
+// returns, so this needed no new raycasting logic, just a threshold on a
+// number that already existed.
+const WEAPON_STATS = {
+  Shotgun_1: { damage: MAX_HEALTH, maxRangeMeters: 10 },
+  SniperRifle_1: { damage: MAX_HEALTH, maxRangeMeters: null },
+};
+const DEFAULT_WEAPON_STATS = { damage: DAMAGE_PER_HIT, maxRangeMeters: null };
+
+function resolveWeaponStats(gunVariant) {
+  return WEAPON_STATS[gunVariant] ?? DEFAULT_WEAPON_STATS;
+}
 
 // Where each participant starts. Spread far apart across the whole
 // (now-big) map - well beyond bots' 10m detection range from each other so
@@ -96,10 +124,10 @@ const SPAWN_POINTS = [
 export function createMatch(matchId, participants, onEmpty, modeName = 'versus', matchOptions = {}) {
   const modeConfig = MODE_CONFIGS[modeName] ?? MODE_CONFIGS.versus;
   const stakePool = matchOptions.stakePool ?? 0;
-  const players = new Map(); // id -> { socket, callsign, isBot, userId, characterVariant, teamId, position, yaw, health, pot, securedPot, kills, deathCount, secondsInZone, lastMoveAt }
+  const players = new Map(); // id -> { socket, callsign, isBot, userId, characterVariant, gunVariant, teamId, position, yaw, health, pot, securedPot, kills, deathCount, secondsInZone, lastMoveAt }
 
   participants.forEach(({
-    id, socket, callsign, isBot, userId, characterVariant,
+    id, socket, callsign, isBot, userId, characterVariant, gunVariant,
   }, index) => {
     if (socket) socket.matchId = matchId;
     const spawnPoint = SPAWN_POINTS[index % SPAWN_POINTS.length];
@@ -109,6 +137,14 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
       isBot: Boolean(isBot),
       userId: userId ?? null, // set only for a real, logged-in player - see server/src/index.js
       characterVariant: characterVariant ?? null, // the dashboard loadout selector's pick - see index.js's ?character= query param
+      // The dashboard loadout selector's OTHER pick (?gun=) - unlike
+      // characterVariant this drives real gameplay (see WEAPON_STATS below),
+      // never sent to other clients (see start()'s roster - the gun a
+      // remote participant is holding is always rendered as a fixed model
+      // regardless of their real pick, see weapon.js's REMOTE_WEAPON_VARIANT).
+      // A bot never has one (bots don't equip a real loadout) - stays null,
+      // which resolveWeaponStats reads as "use the default weapon stats".
+      gunVariant: gunVariant ?? null,
       // Alternating 0/1 by join order when this mode has teams (Coop) -
       // null everywhere else. Bots get a teamId too, so they fill out both
       // sides same as they fill empty slots elsewhere.
@@ -613,13 +649,30 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
     const wallHit = findClosestWallHit(origin, direction);
     const isBlockedByWall = (candidateDistance) => wallHit !== null && wallHit.distance < candidateDistance;
 
-    const entityIsCloser = entityHit !== null
+    // A shot beyond the shooter's own weapon's range never counts as a hit
+    // on a PLAYER/BOT, even though the ray genuinely intersects their
+    // hitbox - see WEAPON_STATS above (Shotgun_1's whole reason for being
+    // otherwise-lethal is that this is the trade-off). Never applied to the
+    // static point-scoring targets (targetHit) - range is specifically
+    // about lethality against a living target, not the shooting-range
+    // dummies. Kept separate from entityIsClosestObstruction below - an
+    // out-of-range entity still physically stops the shot (a real shotgun
+    // pellet spread that's lost its punch doesn't pass THROUGH someone to
+    // hit whatever's behind them either), it just doesn't count as a hit;
+    // folding the range check directly into "is this the closest thing"
+    // would have let an out-of-range entity's shot fall through to score
+    // a static target standing behind them instead of just being a miss.
+    const weaponStats = resolveWeaponStats(player.gunVariant);
+    const inWeaponRange = (distance) => weaponStats.maxRangeMeters === null || distance <= weaponStats.maxRangeMeters;
+
+    const entityIsClosestObstruction = entityHit !== null
       && (targetHit === null || entityHit.distance < targetHit.distance)
       && !isBlockedByWall(entityHit.distance);
-    const targetIsHit = !entityIsCloser && targetHit !== null && !isBlockedByWall(targetHit.distance);
+    const entityIsHit = entityIsClosestObstruction && inWeaponRange(entityHit.distance);
+    const targetIsHit = !entityIsClosestObstruction && targetHit !== null && !isBlockedByWall(targetHit.distance);
 
-    if (entityIsCloser) {
-      handleShotOnEntity(entityHit.id, id, player);
+    if (entityIsHit) {
+      handleShotOnEntity(entityHit.id, id, player, weaponStats.damage);
     } else if (targetIsHit) {
       player.pot += POINTS_PER_HIT;
       player.socket.send(JSON.stringify({ type: 'shoot-result', hit: true, killed: false, pot: player.pot }));
@@ -631,12 +684,15 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
   // Applies one hit's damage to a victim (bot or real player). Returns
   // true if they died. A REAL player who survives gets a 'hit' message so
   // their health bar updates - bots don't need one, nobody's watching a
-  // bot's health bar.
-  function applyDamage(victimId, attackerCallsign) {
+  // bot's health bar. `damageAmount` defaults to the flat DAMAGE_PER_HIT -
+  // onBotShoot below never passes one (a bot has no real weapon, see
+  // WEAPON_STATS above), only handleShotOnEntity does (a real player's shot,
+  // using their own gun's resolved damage).
+  function applyDamage(victimId, attackerCallsign, damageAmount = DAMAGE_PER_HIT) {
     const victim = players.get(victimId);
     if (!victim) return false;
 
-    victim.health -= DAMAGE_PER_HIT;
+    victim.health -= damageAmount;
     if (victim.health <= 0) return true;
 
     if (victim.socket) {
@@ -722,11 +778,14 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
   }
 
   // A player's shot connecting with a bot OR another real player.
-  function handleShotOnEntity(victimId, shooterId, shooterPlayer) {
+  // `damageAmount` is the shooter's own weapon's resolved damage (see
+  // WEAPON_STATS/handleShoot above) - always passed explicitly here, unlike
+  // onBotShoot's call to applyDamage below, which relies on its default.
+  function handleShotOnEntity(victimId, shooterId, shooterPlayer, damageAmount) {
     const victim = players.get(victimId);
     if (!victim) return;
 
-    const died = applyDamage(victimId, shooterPlayer.callsign);
+    const died = applyDamage(victimId, shooterPlayer.callsign, damageAmount);
 
     if (!died) {
       // Registered as a hit, but they're still alive - no kill reward yet.

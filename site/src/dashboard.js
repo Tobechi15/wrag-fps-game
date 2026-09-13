@@ -208,8 +208,18 @@ function wirePlayModeSelector() {
   if (!mainBtn) return;
   const allButtons = [mainBtn, ...secondaryButtons];
 
+  // .playmode-main ships with `active` already set in the static HTML
+  // (dashboard.html) so Battle Royale reads as selected before any JS runs
+  // at all - but that meant this on-load initialization only ever ADDED
+  // `active` to whichever mode was actually stored, never removing it from
+  // that hardcoded starting point first. A returning player with anything
+  // OTHER than 'versus' stored (e.g. Co-op) ended up with BOTH buttons
+  // showing active at once. Clearing every button first, exactly like the
+  // click handler below already does, is what actually enforces "one at a
+  // time" - adding to the right one alone was never enough on its own.
   const stored = localStorage.getItem('wrag.playMode');
   const initiallyActive = allButtons.find((btn) => btn.dataset.mode === stored) ?? mainBtn;
+  allButtons.forEach((btn) => btn.classList.remove('active'));
   initiallyActive.classList.add('active');
   if (!stored) localStorage.setItem('wrag.playMode', initiallyActive.dataset.mode);
 

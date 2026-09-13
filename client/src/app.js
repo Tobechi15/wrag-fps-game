@@ -28,11 +28,14 @@ const postMatchScreenEl = document.getElementById('post-match-screen');
 // results to a real account instead of playing fully anonymously; no
 // token just means anonymous play, same as Phase 1 always has. The
 // dashboard's loadout selector appends `character`/`gun` the same way -
-// character needs to reach the SERVER (other participants need to see your
-// pick, see match.js's roster), so it rides along on the connection URL
-// too; gun only ever affects your own first-person view (see weapon.js),
-// so it's read straight off this page's own URL below instead, no need to
-// round-trip it through the server.
+// both now ride along on the connection URL: character needs to reach the
+// SERVER so other participants can see your pick (see match.js's roster),
+// and gun does too, even though it still only ever changes YOUR OWN
+// first-person view client-side (see weapon.js) - the server now also
+// reads it to resolve per-weapon damage/range (see match.js's
+// WEAPON_STATS: a shotgun one-shots up close but can't reach far, a sniper
+// one-shots at any range), which has to be decided server-side like every
+// other gameplay outcome, not left to the client's own claim.
 const urlParams = new URLSearchParams(window.location.search);
 const playToken = urlParams.get('token');
 const characterVariant = urlParams.get('character');
@@ -48,6 +51,7 @@ const playMode = urlParams.get('mode') ?? 'versus';
 const wsParams = new URLSearchParams();
 if (playToken) wsParams.set('token', playToken);
 if (characterVariant) wsParams.set('character', characterVariant);
+if (gunVariant) wsParams.set('gun', gunVariant);
 const wsQuery = wsParams.toString();
 
 // The game server's own address, not a hardcoded '127.0.0.1' - this page

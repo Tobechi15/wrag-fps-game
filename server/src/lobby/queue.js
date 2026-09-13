@@ -12,17 +12,19 @@ const COUNTDOWN_SECONDS = 15;
 // which is why this is a parameter rather than the module-level constant it
 // used to be.
 export function createQueue({ onMatchStart, matchSize = DEFAULT_matchSize }) {
-  const entries = new Map(); // id -> { socket, callsign, userId, characterVariant }
+  const entries = new Map(); // id -> { socket, callsign, userId, characterVariant, gunVariant }
   let secondsRemaining = COUNTDOWN_SECONDS;
 
   // userId is null for anonymous play - see server/src/index.js's
   // 'connection' handler and auth/playTokens.js for how a real one gets
-  // here. characterVariant is the dashboard loadout selector's pick (see
-  // index.js's ?character= query param) - null falls back to
-  // characterModel.js's default client-side.
-  function join(id, socket, callsign, userId = null, characterVariant = null) {
+  // here. characterVariant/gunVariant are the dashboard loadout selector's
+  // picks (see index.js's ?character=/?gun= query params) - null falls back
+  // to characterModel.js's/weapon.js's own defaults client-side (gunVariant
+  // ALSO drives match.js's per-weapon damage/range - see its own comment -
+  // so unlike characterVariant it isn't purely cosmetic).
+  function join(id, socket, callsign, userId = null, characterVariant = null, gunVariant = null) {
     entries.set(id, {
-      socket, callsign, userId, characterVariant,
+      socket, callsign, userId, characterVariant, gunVariant,
     });
     broadcast();
   }
@@ -61,6 +63,7 @@ export function createQueue({ onMatchStart, matchSize = DEFAULT_matchSize }) {
         callsign: entry.callsign,
         userId: entry.userId,
         characterVariant: entry.characterVariant,
+        gunVariant: entry.gunVariant,
       })));
     }
 

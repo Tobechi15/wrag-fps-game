@@ -23,7 +23,7 @@ const MAX_ROOM_SIZE = 8; // same headcount as the public queues - no bots fill a
 // can never be paid OUT of it either even if they end up "winning" (see
 // match.js's stake-pool payout, which only ever credits a real userId).
 export function createPrivateRoomRegistry({ onMatchStart }) {
-  const rooms = new Map(); // code -> { hostId, stake, pool, members: Map<id, {socket, callsign, userId, characterVariant, stakePaid}> }
+  const rooms = new Map(); // code -> { hostId, stake, pool, members: Map<id, {socket, callsign, userId, characterVariant, gunVariant, stakePaid}> }
   const roomCodeByMemberId = new Map(); // id -> code, so leave()/create() can find/clean up a member's current room without the caller tracking it
 
   function generateCode() {
@@ -113,7 +113,7 @@ export function createPrivateRoomRegistry({ onMatchStart }) {
     return { ok: true, paid: stake };
   }
 
-  async function create(id, socket, callsign, userId = null, characterVariant = null, rawStake = 0) {
+  async function create(id, socket, callsign, userId = null, characterVariant = null, rawStake = 0, gunVariant = null) {
     leave(id); // defensive - see comment above
     // Only a non-negative whole number - anything else (missing, negative,
     // a string, NaN) becomes a free room rather than trusting client input.
@@ -128,7 +128,7 @@ export function createPrivateRoomRegistry({ onMatchStart }) {
       stake,
       pool: paid,
       members: new Map([[id, {
-        socket, callsign, userId, characterVariant, stakePaid: paid,
+        socket, callsign, userId, characterVariant, gunVariant, stakePaid: paid,
       }]]),
     });
     roomCodeByMemberId.set(id, code);
@@ -136,7 +136,7 @@ export function createPrivateRoomRegistry({ onMatchStart }) {
     broadcastRoomUpdate(code);
   }
 
-  async function join(code, id, socket, callsign, userId = null, characterVariant = null) {
+  async function join(code, id, socket, callsign, userId = null, characterVariant = null, gunVariant = null) {
     const room = rooms.get(code);
     if (!room) {
       socket.send(JSON.stringify({ type: 'room-error', reason: 'not-found', code }));
@@ -153,7 +153,7 @@ export function createPrivateRoomRegistry({ onMatchStart }) {
     leave(id); // defensive - see comment above create() - after paying, so switching rooms mid-payment can't lose track of a charge
     room.pool += paid;
     room.members.set(id, {
-      socket, callsign, userId, characterVariant, stakePaid: paid,
+      socket, callsign, userId, characterVariant, gunVariant, stakePaid: paid,
     });
     roomCodeByMemberId.set(id, code);
     broadcastRoomUpdate(code);
@@ -175,6 +175,7 @@ export function createPrivateRoomRegistry({ onMatchStart }) {
       callsign: member.callsign,
       userId: member.userId,
       characterVariant: member.characterVariant,
+      gunVariant: member.gunVariant,
     }));
     const stakePool = room.pool;
 

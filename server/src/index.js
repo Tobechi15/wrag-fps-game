@@ -170,6 +170,13 @@ wss.on('connection', (socket, request) => {
   // client falls back to its own default (see characterModel.js), nothing
   // to validate strictly here.
   const characterVariant = requestUrl.searchParams.get('character');
+  // Unlike characterVariant, this ISN'T purely cosmetic - match.js reads it
+  // to decide per-shot damage/range (a shotgun one-shots up close but can't
+  // reach far; a sniper one-shots at any range - see match.js's WEAPON_STATS),
+  // so it has to be known server-side rather than staying client-only. An
+  // unrecognized/missing value just falls back to match.js's own default
+  // (the flat, unchanged damage every other weapon already had).
+  const gunVariant = requestUrl.searchParams.get('gun');
 
   // Deliberately NOT auto-joined into the Versus queue here anymore (it
   // used to be, "same as before Coop/Private/Survival existed") - that
@@ -210,7 +217,7 @@ wss.on('connection', (socket, request) => {
         // logged-in account has a balance to stake in the first place.
         if (!userId || stake <= 0) {
           leaveAllPreMatchQueues(id, socket);
-          targetQueue.join(id, socket, callsign, userId, characterVariant);
+          targetQueue.join(id, socket, callsign, userId, characterVariant, gunVariant);
           return;
         }
 
@@ -230,7 +237,7 @@ wss.on('connection', (socket, request) => {
           recordStakeCollected(stake).catch((err) => {
             console.error('Failed to record stake collection in house ledger:', err);
           });
-          targetQueue.join(id, socket, callsign, userId, characterVariant);
+          targetQueue.join(id, socket, callsign, userId, characterVariant, gunVariant);
         }).catch((err) => {
           console.error(`Failed to deduct stake for user ${userId}:`, err);
         });
@@ -238,12 +245,12 @@ wss.on('connection', (socket, request) => {
       }
       if (message.type === 'create-room') {
         leaveAllPreMatchQueues(id, socket);
-        privateRooms.create(id, socket, callsign, userId, characterVariant, message.stake);
+        privateRooms.create(id, socket, callsign, userId, characterVariant, message.stake, gunVariant);
         return;
       }
       if (message.type === 'join-room' && typeof message.code === 'string') {
         leaveAllPreMatchQueues(id, socket);
-        privateRooms.join(message.code.toUpperCase(), id, socket, callsign, userId, characterVariant);
+        privateRooms.join(message.code.toUpperCase(), id, socket, callsign, userId, characterVariant, gunVariant);
         return;
       }
       if (message.type === 'start-room' && typeof message.code === 'string') {
@@ -254,7 +261,7 @@ wss.on('connection', (socket, request) => {
         leaveAllPreMatchQueues(id, socket);
         const bots = createBotEntries(SURVIVAL_BOT_COUNT);
         launchMatch([{
-          id, socket, callsign, userId, characterVariant,
+          id, socket, callsign, userId, characterVariant, gunVariant,
         }, ...bots], 'survival');
         return;
       }
