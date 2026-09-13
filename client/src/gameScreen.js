@@ -528,7 +528,10 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     // fire click instead of a real gunshot, no shot sent to the server at
     // all (see shooting.js's fire()).
     onDryFire: () => audio.playSfx('emptyGunshot'),
-    onReloadStart: (durationMs) => startReloadAnimation(durationMs),
+    onReloadStart: (durationMs) => {
+      startReloadAnimation(durationMs);
+      audio.playSfx('reload');
+    },
     onReloadEnd: () => endReloadAnimation(),
   });
 

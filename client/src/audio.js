@@ -42,6 +42,11 @@ const SFX_URLS = {
   // shooting.js's onDryFire (fires instead of gunshotPlayer, never both,
   // whenever fire() is called while a reload is already in progress).
   emptyGunshot: '/audio/empty-gunshot.mp3',
+  // The reload itself - fires once, right as shooting.js's onReloadStart
+  // does (see gameScreen.js), alongside the HUD's reload-indicator ring.
+  // Picks one at random per reload, same "don't sound identical every
+  // time" reasoning as gunshotPlayer/hurt/dying above.
+  reload: ['/audio/gun-reload.mp3', '/audio/gun-reload-2.mp3'],
 };
 const SFX_VOLUMES = {
   gunshotPlayer: 0.6,
@@ -56,6 +61,7 @@ const SFX_VOLUMES = {
   dying: 0.55,
   beep: 0.4,
   emptyGunshot: 0.5,
+  reload: 0.55,
 };
 // A real playlist, not one track on repeat - cycles through every track in
 // order (wrapping back to the first once the last one ends) via the
