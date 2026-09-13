@@ -43,6 +43,7 @@ async function initDashboard() {
   wirePlayModeSelector();
   wireTabRow('mode-tabs');
   wireStatsToggle();
+  wireDockToggle();
   wirePlaceholderLinks();
   wireDepositModal();
   // The stage needs to exist before the selector can tell it to swap
@@ -277,6 +278,43 @@ function wireLoadoutSelector(onSelectionChanged) {
       tab.classList.add('active');
       const targetPanelId = tab.dataset.panel;
       optionGroups.forEach((group) => { group.hidden = group.id !== targetPanelId; });
+    });
+  });
+}
+
+// Mobile dock switcher (see dashboard.css's max-width:1000px block) - only
+// meaningful below that breakpoint, where dashboard.html marks dock-left/
+// dock-profile with a `dock-collapsed` class up front (dock-right, the
+// Play Mode/Deploy dock, starts the one visible one - it holds the primary
+// "Play Now" action). Replaces the old approach of squeezing all three
+// panels onto the screen at once at half their intended width, which is
+// what was actually causing the clutter/overlap - the panels' own content
+// never got any smaller, so shrinking their BOX just meant that content
+// overflowed it. Above the breakpoint this class has no effect at all
+// (dashboard.css only defines `.dock-collapsed { display: none }` inside
+// the media query), so a desktop window resized narrower then wider again
+// always ends up with every dock visible, regardless of this class.
+function wireDockToggle() {
+  const toggleButtons = Array.from(document.querySelectorAll('.dock-toggle-btn'));
+  const docks = Array.from(document.querySelectorAll('.dock'));
+  if (toggleButtons.length === 0) return;
+
+  function showOnly(dockClass) {
+    docks.forEach((dock) => dock.classList.toggle('dock-collapsed', !dock.classList.contains(dockClass)));
+    toggleButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.dock === dockClass));
+  }
+
+  toggleButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      // Tapping the already-open dock's own button closes it (leaving
+      // none open, e.g. to see the character stage unobstructed) - a real
+      // show/hide toggle per button, not just an exclusive tab switcher.
+      if (button.classList.contains('active')) {
+        docks.forEach((dock) => dock.classList.add('dock-collapsed'));
+        toggleButtons.forEach((btn) => btn.classList.remove('active'));
+      } else {
+        showOnly(button.dataset.dock);
+      }
     });
   });
 }

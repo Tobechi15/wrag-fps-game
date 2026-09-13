@@ -80,8 +80,11 @@
       <a class="btn btn-primary deploy-btn" id="deploy-btn" href="#">Play Now</a>
     </div>
 
-    <!-- LEFT DOCK: loadout -->
-    <div class="dock dock-left panel">
+    <!-- LEFT DOCK: loadout - dock-collapsed only matters below dashboard.css's
+         max-width:1000px breakpoint (see wireDockToggle in dashboard.js);
+         above it every dock is unconditionally visible regardless of this
+         class, same full desktop layout as before. -->
+    <div class="dock dock-left panel dock-collapsed">
       <span class="eyebrow">Loadout</span>
       <div class="tab-row" id="loadout-tabs">
         <button class="tab-btn active" type="button" data-panel="character-options">Character</button>
@@ -102,7 +105,7 @@
     </div>
 
     <!-- BOTTOM-LEFT DOCK: compact profile, stats/history tucked away -->
-    <div class="dock dock-profile panel">
+    <div class="dock dock-profile panel dock-collapsed">
       <div class="profile-mini">
         <span class="profile-mini-name" id="dash-callsign">OPERATOR</span>
         <span class="profile-mini-level"><span id="dash-matches-played">0</span> Matches</span>
@@ -121,6 +124,17 @@
           <p class="placeholder-note" id="mini-history-empty">No matches played yet - deploy to start your record.</p>
         </div>
       </div>
+    </div>
+
+    <!-- Mobile-only dock switcher (see dashboard.css's max-width:1000px
+         block and dashboard.js's wireDockToggle) - below that breakpoint the
+         three docks above are shown one at a time instead of squeezed
+         side-by-side, so they can never overlap. Invisible/inert above the
+         breakpoint. -->
+    <div class="dock-toggle-bar" id="dock-toggle-bar">
+      <button class="dock-toggle-btn" type="button" data-dock="dock-left">Loadout</button>
+      <button class="dock-toggle-btn active" type="button" data-dock="dock-right">Play</button>
+      <button class="dock-toggle-btn" type="button" data-dock="dock-profile">Profile</button>
     </div>
 
   </div>

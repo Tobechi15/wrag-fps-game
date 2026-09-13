@@ -755,3 +755,75 @@
   align-self: stretch;
   background: var(--color-border);
 }
+
+/* Compact HUD on touch devices (see touchControls.js, which adds/removes
+   this class on #game-screen - same signal the touch-cluster clearance
+   overrides in touchControls.css key off) - every HUD card above was sized
+   for a desktop monitor viewed from a normal distance; on a phone's much
+   smaller, much closer screen the same absolute padding/font-sizes read as
+   oversized and cluttered, competing with the touch controls for the same
+   limited space. Nothing here changes desktop at all - .touch-active is
+   never present there. Shrinks padding/gaps/font-sizes roughly 25-35%
+   across every panel rather than changing their layout/position (that's
+   handled separately, see the #ammo-display/#health-display overrides
+   above and #coop-status-bar's max-width). */
+#game-screen.touch-active .hud-panel-title {
+  font-size: 9px;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+#game-screen.touch-active #pot-display {
+  padding: 7px 14px 8px 10px;
+  gap: 5px;
+}
+#game-screen.touch-active .pot-row {
+  gap: 8px;
+  padding-left: 7px;
+}
+#game-screen.touch-active .pot-row .label {
+  min-width: 44px;
+}
+#game-screen.touch-active #pot-display .stat-value {
+  font-size: 16px;
+}
+#game-screen.touch-active #health-display {
+  padding: 7px 12px 8px;
+  min-width: 130px;
+  gap: 5px;
+}
+#game-screen.touch-active #ammo-display {
+  padding: 7px 12px 8px;
+  min-width: 84px;
+}
+#game-screen.touch-active #ammo-display .stat-value {
+  font-size: 16px;
+}
+#game-screen.touch-active #coop-status-bar {
+  padding: 6px 12px;
+  gap: 8px;
+}
+#game-screen.touch-active .versus-bar-team {
+  gap: 6px;
+}
+#game-screen.touch-active .versus-bar-score {
+  gap: 5px;
+  padding: 0 4px;
+  font-size: 16px;
+}
+#game-screen.touch-active .player-chip-avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 9px;
+}
+#game-screen.touch-active .player-chip-lives {
+  min-width: 12px;
+  height: 12px;
+  font-size: 8px;
+}
+#game-screen.touch-active #match-status-bar {
+  padding: 6px 14px;
+  gap: 10px;
+}
+#game-screen.touch-active .match-status-stat .stat-value {
+  font-size: 15px;
+}

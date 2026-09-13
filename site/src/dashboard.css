@@ -260,15 +260,68 @@ html, body {
 .mini-history-row .danger { color: var(--color-danger); }
 /* .placeholder-note base styles now live in theme.css (shared across the whole site). */
 
+/* Mobile-only dock switcher bar (see dashboard.html + dashboard.js's
+   wireDockToggle) - hidden entirely above the 1000px breakpoint below,
+   where every dock is always visible side-by-side/around the stage same
+   as it always was. */
+.dock-toggle-bar {
+  display: none;
+}
+
 @media (max-width: 1000px) {
-  .dock-left, .dock-right {
-    position: fixed;
+  /* Below this width, the docks used to be squeezed to half-width and
+     stacked at the bottom TOGETHER (dock-left/dock-right side by side,
+     dock-profile below both) - each panel's real content (the loadout
+     grid, playmode tabs + deploy button, stats grid) didn't actually get
+     any smaller, so at half-width on an already-small screen they
+     overflowed their own boxes and often overlapped each other and the
+     touch-controls-style corner space. Shown one at a time instead (see
+     .dock-collapsed below + wireDockToggle), each at its full intended
+     size/content - which is what "don't shrink the panels, just show/hide
+     them" below actually means: the PANELS themselves are untouched, only
+     how many are on screen at once changes. */
+  .dock {
+    left: 16px; right: 16px;
     top: auto;
-    bottom: 100px;
+    bottom: 76px; /* clears .dock-toggle-bar below */
+    width: auto;
+    max-height: calc(100dvh - 92px); /* leaves room for the toggle bar + a small gap - long content (e.g. Stats & History expanded) scrolls internally instead of overflowing off-screen */
+    overflow-y: auto;
     transform: none;
-    width: calc(50% - 40px);
   }
-  .dock-left { left: 16px; }
-  .dock-right { right: 16px; }
-  .dock-profile { left: 16px; right: 16px; width: auto; bottom: 16px; }
+  /* Only ever removed/added by wireDockToggle, and only means anything
+     inside this media query - a dock element resized back above 1000px
+     (a desktop window narrowed then widened again) is unconditionally
+     visible again regardless of whether this class is still present. */
+  .dock.dock-collapsed {
+    display: none;
+  }
+
+  .dock-toggle-bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 6;
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(10, 11, 13, 0.95), transparent);
+  }
+  .dock-toggle-btn {
+    flex: 1;
+    padding: 12px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--color-panel-alt);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: border-color 150ms ease-out, color 150ms ease-out;
+  }
+  .dock-toggle-btn.active {
+    border-color: var(--color-accent);
+    color: var(--color-text-primary);
+  }
 }
