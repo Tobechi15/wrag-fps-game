@@ -570,6 +570,8 @@ img { max-width: 100%; }
     grid-template-columns: 1fr;
     gap: 32px;
   }
+  .split-section-reverse .split-grid { grid-template-columns: 1fr; }
+  .split-content { min-width: 0; }
   .split-section-reverse .split-context,
   .split-section-reverse .split-content {
     order: initial;
@@ -585,8 +587,15 @@ img { max-width: 100%; }
   .hero-headline { font-size: 46px; }
   .preview-mock-body { grid-template-columns: 1fr; }
   .nav-links { display: none; }
+  .nav-actions { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
   .profile-grid { grid-template-columns: repeat(2, 1fr); }
   .match-card-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .nav-inner { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
+  .nav-callsign { display: none; }
+  .nav-actions .btn { padding-right: 8px; padding-left: 8px; }
+  #nav-actions-signed-in:not([hidden]) { flex: 0 0 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .glow-orb { animation: none; }
