@@ -107,7 +107,8 @@ cd site
 npm install   # first time only
 npm run dev
 ```
-Open **`http://127.0.0.1:5175/`**.
+Open **`http://127.0.0.1:5175/`** for the deployment dashboard. The
+marketing page remains available at **`http://127.0.0.1:5175/marketing`**.
 
 **4 — Client** (the actual game — reached via the dashboard's Deploy
 button, or directly for quick testing):

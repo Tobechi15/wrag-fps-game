@@ -133,6 +133,35 @@ function easeOutCubic(t) {
 export function createRemotePlayerManager(scene) {
   const entriesById = new Map(); // id -> { root, mixer, idleAction, moveAction, deathClip, isMoving, lastPosition }
   const dyingEntries = []; // { entry, elapsed } - see remove() below
+  const hitFlashMaterials = new Map();
+  const HIT_FLASH_STRENGTH = 0.68;
+  const HIT_REACTION_SECONDS = 0.18;
+  const HIT_REACTION_ROTATION = 0.035;
+  const HIT_REACTION_FREQUENCY = 52;
+
+  function getHitFlashMaterial(material) {
+    if (!hitFlashMaterials.has(material)) {
+      const flashMaterial = material.clone();
+      if (flashMaterial.color) flashMaterial.color.lerp(new THREE.Color(0xffffff), HIT_FLASH_STRENGTH);
+      hitFlashMaterials.set(material, flashMaterial);
+    }
+    return hitFlashMaterials.get(material);
+  }
+
+  function collectHitMeshes(root, gunMesh = null) {
+    const meshes = [];
+    root.traverse((child) => {
+      if (!child.isMesh || child === gunMesh) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      const flashMaterials = materials.map(getHitFlashMaterial);
+      meshes.push({
+        mesh: child,
+        material: child.material,
+        flashMaterial: Array.isArray(child.material) ? flashMaterials : flashMaterials[0],
+      });
+    });
+    return meshes;
+  }
 
   // A floating text tag above the character's head - the ONLY
   // identification signal for the real character model path (its
@@ -261,6 +290,9 @@ export function createRemotePlayerManager(scene) {
       interpFrom: null,
       interpTo: null,
       interpElapsed: 0,
+      hitMeshes: collectHitMeshes(model, gunMesh),
+      hitTimeoutId: null,
+      hitReactionElapsed: null,
     };
   }
 
@@ -292,6 +324,9 @@ export function createRemotePlayerManager(scene) {
       interpFrom: null,
       interpTo: null,
       interpElapsed: 0,
+      hitMeshes: collectHitMeshes(mesh),
+      hitTimeoutId: null,
+      hitReactionElapsed: null,
     };
   }
 
@@ -393,6 +428,9 @@ export function createRemotePlayerManager(scene) {
   // immediately on death.
   function disposeEntry(entry) {
     const { root } = entry;
+    clearTimeout(entry.hitTimeoutId);
+    entry.hitTimeoutId = null;
+    for (const { mesh, material } of entry.hitMeshes) mesh.material = material;
     scene.remove(root);
     root.traverse((child) => {
       // Never dispose shared resources (the cached character template's
@@ -417,6 +455,17 @@ export function createRemotePlayerManager(scene) {
   function tick(deltaSeconds) {
     for (const entry of entriesById.values()) {
       entry.mixer?.update(deltaSeconds);
+
+      if (entry.hitReactionElapsed !== null) {
+        entry.hitReactionElapsed += deltaSeconds;
+        const progress = Math.min(entry.hitReactionElapsed / HIT_REACTION_SECONDS, 1);
+        entry.root.rotation.z = Math.sin(entry.hitReactionElapsed * HIT_REACTION_FREQUENCY)
+          * HIT_REACTION_ROTATION * (1 - progress);
+        if (progress >= 1) {
+          entry.root.rotation.z = 0;
+          entry.hitReactionElapsed = null;
+        }
+      }
 
       if (entry.interpFrom && entry.interpTo) {
         entry.interpElapsed += deltaSeconds;
@@ -486,6 +535,8 @@ export function createRemotePlayerManager(scene) {
     const entry = entriesById.get(id);
     if (!entry) return;
     entriesById.delete(id);
+    entry.hitReactionElapsed = null;
+    entry.root.rotation.z = 0;
 
     const style = pickFallStyle(Boolean(entry.deathClip));
 
@@ -551,6 +602,27 @@ export function createRemotePlayerManager(scene) {
     return target;
   }
 
+  function flashHit(id) {
+    const entry = entriesById.get(id);
+    if (!entry) return;
+    clearTimeout(entry.hitTimeoutId);
+    for (const { mesh, flashMaterial } of entry.hitMeshes) mesh.material = flashMaterial;
+    entry.hitReactionElapsed = 0;
+    entry.hitTimeoutId = setTimeout(() => {
+      for (const { mesh, material } of entry.hitMeshes) mesh.material = material;
+      entry.hitTimeoutId = null;
+    }, 110);
+  }
+
+  function dispose() {
+    for (const entry of entriesById.values()) disposeEntry(entry);
+    for (const dying of dyingEntries) disposeEntry(dying.entry);
+    entriesById.clear();
+    dyingEntries.length = 0;
+    for (const material of hitFlashMaterials.values()) material.dispose();
+    hitFlashMaterials.clear();
+  }
+
   // World-space aim points for every currently-live ENEMY participant (bots
   // included, allies excluded - see touchControls.js's aim assist, the only
   // caller) - one per entry, at roughly chest height above their reported
@@ -573,6 +645,6 @@ export function createRemotePlayerManager(scene) {
   }
 
   return {
-    upsert, remove, respawn, tick, getMuzzleWorldPosition, getAimAssistTargets,
+    upsert, remove, respawn, tick, getMuzzleWorldPosition, getAimAssistTargets, flashHit, dispose,
   };
 }

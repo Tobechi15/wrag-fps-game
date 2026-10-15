@@ -3,11 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WRAG</title>
-  <meta name="description" content="Your WRAG deployment dashboard - pick a loadout, choose a mode, and deploy." />
-  <!-- Requires a logged-in session (see dashboard.js's redirect-to-login) -
-       nothing here for a crawler to usefully index. -->
-  <meta name="robots" content="noindex, nofollow" />
+  <title>WRAG — Deployment</title>
+  <meta name="description" content="Choose a loadout and mode before deploying into a WRAG match." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -25,11 +22,17 @@
   <link rel="stylesheet" href="/src/dashboard.css" />
 </head>
 <body>
-  <!-- The character stage mounts its canvas here - full-bleed, behind
-       everything else. Kept empty until dashboard.js confirms the visitor
-       is actually logged in, so nobody sees a flash of dashboard content
-       before the auth redirect can kick in. -->
-  <div id="stage-root"></div>
+  <div id="stage-root" aria-hidden="true"></div>
+  <div class="guest-stage-copy" aria-hidden="true">
+    <span class="guest-stage-kicker">WRAG / FIELD OPERATIONS</span>
+    <span class="guest-stage-coordinate">DEPLOYMENT ZONE 04</span>
+    <span class="guest-stage-reticle"></span>
+    <div class="guest-stage-caption">
+      <span class="eyebrow">Choose your risk</span>
+      <h1>Enter. Eliminate.<br />Extract.</h1>
+      <p>Only what you extract is yours to keep.</p>
+    </div>
+  </div>
 
   <div id="dashboard-ui" hidden>
     <header class="nav dashboard-nav">
@@ -147,6 +150,59 @@
       <button class="dock-toggle-btn" type="button" data-dock="dock-profile">Profile</button>
     </div>
 
+  </div>
+
+  <div class="guest-auth-overlay" id="guest-auth-overlay" hidden>
+    <div class="guest-auth-scrim" aria-hidden="true"></div>
+    <section class="guest-auth-sheet" role="dialog" aria-modal="true" aria-labelledby="guest-auth-title">
+      <span class="eyebrow">Operator access</span>
+      <div id="guest-auth-choice">
+        <h2 id="guest-auth-title">Ready for deployment?</h2>
+        <p id="guest-auth-description">Log in or create an account to save your match record and loadout.</p>
+        <div class="guest-returning-actions" id="guest-returning-actions" hidden>
+          <button class="btn btn-primary" id="continue-session-btn" type="button">Continue as <span id="guest-session-callsign"></span></button>
+          <button class="btn" id="switch-account-btn" type="button">Use Another Account</button>
+        </div>
+        <div class="guest-auth-actions" id="guest-auth-actions">
+          <button class="btn guest-login-btn" id="open-login-btn" type="button">Log In</button>
+          <button class="btn btn-primary guest-signup-btn" id="open-signup-btn" type="button">Sign Up</button>
+        </div>
+        <a class="guest-marketing-link" href="/marketing">Explore WRAG</a>
+      </div>
+
+      <div class="guest-auth-form-panel" id="guest-auth-form-panel" hidden>
+        <button class="guest-auth-back" id="guest-auth-back" type="button" aria-label="Back to account choices">Back</button>
+        <h2 id="guest-auth-form-title">Log In</h2>
+        <form class="guest-auth-form" id="dashboard-login-form" hidden>
+          <label class="auth-field">
+            <span class="label">Email</span>
+            <input type="email" name="email" required autocomplete="email" />
+          </label>
+          <label class="auth-field">
+            <span class="label">Password</span>
+            <input type="password" name="password" required autocomplete="current-password" />
+          </label>
+          <div class="auth-error" id="dashboard-login-error" hidden></div>
+          <button class="btn btn-primary auth-submit" type="submit">Log In</button>
+        </form>
+        <form class="guest-auth-form" id="dashboard-signup-form" hidden>
+          <label class="auth-field">
+            <span class="label">Callsign</span>
+            <input type="text" name="callsign" required minlength="3" maxlength="20" autocomplete="nickname" />
+          </label>
+          <label class="auth-field">
+            <span class="label">Email</span>
+            <input type="email" name="email" required autocomplete="email" />
+          </label>
+          <label class="auth-field">
+            <span class="label">Password</span>
+            <input type="password" name="password" required minlength="8" autocomplete="new-password" />
+          </label>
+          <div class="auth-error" id="dashboard-signup-error" hidden></div>
+          <button class="btn btn-primary auth-submit" type="submit">Create Account</button>
+        </form>
+      </div>
+    </section>
   </div>
 
   <script type="module" src="/src/dashboard.js"></script>

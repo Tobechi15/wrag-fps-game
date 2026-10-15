@@ -113,13 +113,14 @@ function pickScatterPosition() {
 }
 
 const loader = new GLTFLoader();
+let templatesPromise = null;
 
 // Loads each distinct prop file exactly once (not once per placement -
 // PROP_COUNT scattered instances all clone from these same templates, the
 // same "load once, clone many" approach as characterModel.js, just without
 // needing SkeletonUtils since none of these are skinned/animated).
 function loadTemplates() {
-  return Promise.all(
+  if (!templatesPromise) templatesPromise = Promise.all(
     PROP_KEYS.map((key) => new Promise((resolve) => {
       loader.load(
         PROP_URLS[key],
@@ -131,7 +132,11 @@ function loadTemplates() {
         },
       );
     })),
-  ).then((entries) => Object.fromEntries(entries));
+  ).then((entries) => {
+    if (entries.some(([, template]) => !template)) templatesPromise = null;
+    return Object.fromEntries(entries);
+  });
+  return templatesPromise;
 }
 
 const dummy = new THREE.Object3D();

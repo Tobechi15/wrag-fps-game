@@ -8,6 +8,31 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // default can end up IPv6-only and unreachable from a browser). Runs on a
 // different port than client/ (5173) so both can run side by side.
 export default defineConfig({
+  plugins: [{
+    name: 'dashboard-default-route',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const requestUrl = new URL(request.url, 'http://localhost');
+        if (requestUrl.pathname === '/') {
+          response.writeHead(302, { Location: `/dashboard.html${requestUrl.search}` });
+          response.end();
+          return;
+        }
+        if (requestUrl.pathname === '/marketing') {
+          response.writeHead(302, { Location: `/index.html${requestUrl.search}` });
+          response.end();
+          return;
+        }
+        if (requestUrl.pathname === '/login.html' || requestUrl.pathname === '/signup.html') {
+          const authMode = requestUrl.pathname === '/login.html' ? 'login' : 'signup';
+          response.writeHead(302, { Location: `/dashboard.html?auth=${authMode}` });
+          response.end();
+          return;
+        }
+        next();
+      });
+    },
+  }],
   // This is a multi-page app (six separate top-level HTML files, not one
   // SPA) - `vite dev` serves any file in the project root directly
   // regardless of this config, which is why every page worked fine in

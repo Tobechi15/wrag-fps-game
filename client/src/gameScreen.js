@@ -221,7 +221,6 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   const shootEffects = createShootEffects(scene);
   const hitDirectionIndicator = createHitDirectionIndicator(gameScreenElement);
   const audio = createAudioManager();
-  const audioReady = preloadAudio();
   // matchStart/playMusic now fire once matchAssetsReady resolves below
   // (right as the loading screen actually reveals the map), not here -
   // starting them immediately used to mean the stinger/music played
@@ -229,21 +228,10 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // actually see.
 
   createMap(scene); // procedural geometry, no loader - always instant, nothing to await here
-  const propsReady = createProps(scene);
-  const natureReady = createNature(scene);
   const targets = createTargets(scene);
 
-  // Resolves once every loader-based asset for THIS match screen has
-  // actually finished (or failed, tolerantly - see each function's own
-  // comment) - the player's own weapon/arms, decorative props/nature,
-  // every SFX/music file, and (in case a very fast match, e.g. a Private
-  // room the host starts solo, beat app.js's page-load preload) every
-  // character variant + the remote-player weapon template. Everything
-  // here already runs the instant startGame() is called, same as before
-  // this existed - this promise doesn't delay any of that, it only delays
-  // REVEALING it (see matchLoadingScreenEl below), so nothing about
-  // network/animate timing changes; a player just never sees a
-  // placeholder gun or props popping in after the fact.
+  // Only player-visible essentials gate entry. The map dressing and audio
+  // continue loading in the background; neither should hold up gameplay.
   // matchLoadingScreenEl is a PERSISTENT element, reused by whichever match
   // is running next - if this match ends (or this player leaves it) before
   // its own assets finish loading, the stale .then() below must not fire
@@ -251,13 +239,16 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
   // flips this so the check right before hiding it can tell the two apart.
   let stopped = false;
   const matchAssetsReady = Promise.all([
-    weapon.ready, armsReady, propsReady, natureReady, audioReady, preloadCharacterModels(), preloadRemoteWeaponModel(),
+    weapon.ready, armsReady, preloadCharacterModels(), preloadRemoteWeaponModel(),
   ]);
   matchAssetsReady.then(() => {
     if (stopped) return;
     matchLoadingScreenEl.hidden = true;
-    audio.playSfx('matchStart');
-    audio.playMusic();
+    Promise.all([createProps(scene), createNature(scene), preloadAudio()]).then(() => {
+      if (stopped) return;
+      audio.playSfx('matchStart');
+      audio.playMusic();
+    });
   });
   const potTracker = createPotTracker(
     gameScreenElement.querySelector('#pot-secured'),
@@ -395,6 +386,13 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     'player-respawned': ({
       id, position, yaw, isBot, characterVariant, teamId,
     }) => remotePlayers.respawn(id, position, yaw, isBot, characterVariant, localTeamId !== null && teamId === localTeamId, callsignById.get(id)),
+    'entity-hit': ({ victimId, impactPosition, direction }) => {
+      remotePlayers.flashHit(victimId);
+      shootEffects.triggerImpact(
+        new THREE.Vector3(impactPosition.x, impactPosition.y, impactPosition.z),
+        new THREE.Vector3(direction.x, direction.y, direction.z).normalize(),
+      );
+    },
     'shoot-result': ({ hit, killed, pot, rejected }) => {
       if (rejected) {
         console.warn('Server rejected this shot (position mismatch)');
@@ -682,6 +680,7 @@ export function startGame(gameScreenElement, network, initialRoster, onMatchEnde
     playerControls.dispose();
     shootingSystem.dispose();
     touchControls?.dispose();
+    remotePlayers.dispose();
     shootEffects.dispose();
     hitDirectionIndicator.dispose();
     audio.stopMusic();

@@ -11,10 +11,14 @@ async function parseJsonResponse(response) {
 }
 
 export async function fetchCurrentUser() {
-  const response = await fetch('/api/auth/me');
-  if (!response.ok) return null;
-  const data = await response.json();
-  return data.user;
+  try {
+    const response = await fetch('/api/auth/me');
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.user;
+  } catch {
+    return null;
+  }
 }
 
 export async function login(email, password) {

@@ -672,7 +672,14 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
     const targetIsHit = !entityIsClosestObstruction && targetHit !== null && !isBlockedByWall(targetHit.distance);
 
     if (entityIsHit) {
-      handleShotOnEntity(entityHit.id, id, player, weaponStats.damage);
+      handleShotOnEntity(entityHit.id, id, player, weaponStats.damage, {
+        impactPosition: {
+          x: origin.x + direction.x * entityHit.distance,
+          y: origin.y + direction.y * entityHit.distance,
+          z: origin.z + direction.z * entityHit.distance,
+        },
+        direction,
+      });
     } else if (targetIsHit) {
       player.pot += POINTS_PER_HIT;
       player.socket.send(JSON.stringify({ type: 'shoot-result', hit: true, killed: false, pot: player.pot }));
@@ -814,11 +821,17 @@ export function createMatch(matchId, participants, onEmpty, modeName = 'versus',
   // `damageAmount` is the shooter's own weapon's resolved damage (see
   // WEAPON_STATS/handleShoot above) - always passed explicitly here, unlike
   // onBotShoot's call to applyDamage below, which relies on its default.
-  function handleShotOnEntity(victimId, shooterId, shooterPlayer, damageAmount) {
+  function handleShotOnEntity(victimId, shooterId, shooterPlayer, damageAmount, hitDetails) {
     const victim = players.get(victimId);
     if (!victim) return;
 
     const died = applyDamage(victimId, shooterPlayer.callsign, damageAmount, shooterPlayer.position);
+    broadcastToOthers({
+      type: 'entity-hit',
+      victimId,
+      impactPosition: hitDetails.impactPosition,
+      direction: hitDetails.direction,
+    }, victimId);
 
     if (!died) {
       // Registered as a hit, but they're still alive - no kill reward yet.

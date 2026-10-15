@@ -1,5 +1,25 @@
 {
+  "redirects": [
+    {
+      "source": "/login.html",
+      "destination": "/dashboard.html?auth=login",
+      "permanent": false
+    },
+    {
+      "source": "/signup.html",
+      "destination": "/dashboard.html?auth=signup",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/",
+      "destination": "/dashboard.html"
+    },
+    {
+      "source": "/marketing",
+      "destination": "/index.html"
+    },
     {
       "source": "/api/(.*)",
       "destination": "https://wrag-fps-game.onrender.com/api/$1"

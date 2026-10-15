@@ -36,32 +36,43 @@ const PLACEMENTS = [
 ];
 
 const loader = new GLTFLoader();
+const templatesByUrl = new Map();
+
+function loadTemplate(url) {
+  if (!templatesByUrl.has(url)) {
+    templatesByUrl.set(url, new Promise((resolve) => {
+      loader.load(
+        url,
+        (gltf) => resolve(gltf.scene),
+        undefined,
+        (err) => {
+          console.error(`Failed to load prop model (${url}):`, err);
+          templatesByUrl.delete(url);
+          resolve(null);
+        },
+      );
+    }));
+  }
+  return templatesByUrl.get(url);
+}
 
 // A slow/failed load for one placement just means that one prop doesn't
 // appear, never blocks the rest of the scene (same "don't let one bad
-// asset take down the whole page" principle as characterModel.js's
-// preload) - each placement resolves independently either way. Returns a
-// promise that resolves once every placement has settled (loaded or
-// failed) - see gameScreen.js's matchAssetsReady, which waits on this
-// before revealing the match to the player, instead of letting these pop
-// in one by one after they can already see the scene.
-export function createProps(scene) {
-  return Promise.all(PLACEMENTS.map(({ prop, x, z, rotationY }) => new Promise((resolve) => {
-    const url = PROP_URLS[prop];
-    loader.load(
-      url,
-      (gltf) => {
-        const model = gltf.scene;
-        model.position.set(x, 0, z);
-        model.rotation.y = rotationY;
-        scene.add(model);
-        resolve();
-      },
-      undefined,
-      (err) => {
-        console.error(`Failed to load prop "${prop}" (${url}):`, err);
-        resolve();
-      },
-    );
-  })));
+// asset" principle - each unique model URL is fetched once, including
+// across repeated placements and matches. Returns once all placements are
+// either added or skipped because their model failed to load.
+export async function createProps(scene) {
+  const templates = new Map(await Promise.all(
+    [...new Set(PLACEMENTS.map(({ prop }) => PROP_URLS[prop]))]
+      .map(async (url) => [url, await loadTemplate(url)]),
+  ));
+
+  for (const { prop, x, z, rotationY } of PLACEMENTS) {
+    const template = templates.get(PROP_URLS[prop]);
+    if (!template) continue;
+    const model = template.clone(true);
+    model.position.set(x, 0, z);
+    model.rotation.y = rotationY;
+    scene.add(model);
+  }
 }

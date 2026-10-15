@@ -3,6 +3,7 @@
 html, body {
   margin: 0;
   min-height: 100%;
+  min-height: 100dvh;
   background: var(--color-bg);
   color: var(--color-text-primary);
   font-family: var(--font-body);
@@ -100,3 +101,17 @@ html, body {
 }
 .auth-switch a { color: var(--color-accent); text-decoration: none; }
 .auth-switch a:hover { text-decoration: underline; }
+
+@media (max-width: 600px) {
+  .auth-page {
+    min-height: calc(100dvh - 56px);
+    align-items: flex-start;
+    padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .auth-card { max-width: 460px; padding: 24px 20px; }
+  .auth-title { text-align: left; margin-bottom: 20px; }
+  .auth-form { gap: 14px; }
+  .auth-field input { min-height: 48px; font-size: 16px; }
+  .auth-submit { min-height: 50px; }
+}

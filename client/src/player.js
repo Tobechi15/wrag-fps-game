@@ -15,6 +15,7 @@ const MOVE_SPEED = 5; // meters per second
 const PLAYER_HEIGHT = 1.64;
 const LOOK_SENSITIVITY = 0.0022; // radians per pixel of mouse movement
 const PLAYER_RADIUS = 0.4; // for wall collision only - roughly matches the server's entity hitbox (see hitRegistration.js's ENTITY_HITBOX_HALF_EXTENTS)
+const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
 
 // Jump/crouch: purely local/client-predicted, same as horizontal movement -
 // the server only ever relays whatever position it's told (see match.js's
@@ -154,6 +155,8 @@ export function createPlayerControls(camera, domElement, overlayElement) {
   // jump, and crouch stop responding, so a "dead" player can't keep
   // wandering/jumping around during the delay.
   let movementLocked = false;
+  let previousMouseX = null;
+  let previousMouseY = null;
 
   const keysDown = new Set();
 
@@ -179,8 +182,18 @@ export function createPlayerControls(camera, domElement, overlayElement) {
   }
 
   function onMouseMove(event) {
-    if (document.pointerLockElement !== domElement) return;
-    applyLookDelta(event.movementX, event.movementY);
+    if (document.pointerLockElement === domElement) {
+      previousMouseX = null;
+      previousMouseY = null;
+      applyLookDelta(event.movementX || 0, event.movementY || 0);
+      return;
+    }
+
+    if (previousMouseX !== null && previousMouseY !== null) {
+      applyLookDelta(event.clientX - previousMouseX, event.clientY - previousMouseY);
+    }
+    previousMouseX = event.clientX;
+    previousMouseY = event.clientY;
   }
 
   function onKeyDown(event) {
@@ -188,6 +201,16 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     // only the very first keydown should request a jump, otherwise holding
     // Space would queue up extra jumps that fire back-to-back once grounded.
     if (event.code === 'Space' && !event.repeat) jumpRequested = true;
+    if (MOVEMENT_KEYS.has(event.code) && !movementLocked) {
+      if (document.pointerLockElement !== domElement) {
+        try {
+          const lockRequest = domElement.requestPointerLock();
+          lockRequest?.catch(() => {});
+        } catch {
+          // Movement and unlocked trackpad look remain usable when pointer lock is unavailable.
+        }
+      }
+    }
     keysDown.add(event.code);
   }
 
@@ -195,12 +218,24 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     keysDown.delete(event.code);
   }
 
+  function onWindowBlur() {
+    keysDown.clear();
+    jumpRequested = false;
+  }
+
   function onClick() {
-    domElement.requestPointerLock();
+    try {
+      const lockRequest = domElement.requestPointerLock();
+      lockRequest?.catch(() => {});
+    } catch {
+      // The unlocked mouse-look path remains available without Pointer Lock.
+    }
   }
 
   function onPointerLockChange() {
     const locked = document.pointerLockElement === domElement;
+    previousMouseX = null;
+    previousMouseY = null;
     overlayElement.classList.toggle('hidden', locked);
   }
 
@@ -212,6 +247,7 @@ export function createPlayerControls(camera, domElement, overlayElement) {
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
   document.addEventListener('pointerlockchange', onPointerLockChange);
+  window.addEventListener('blur', onWindowBlur);
 
   // Reusable vectors so update() doesn't allocate garbage every frame.
   const forward = new THREE.Vector3();
@@ -347,6 +383,7 @@ export function createPlayerControls(camera, domElement, overlayElement) {
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('keyup', onKeyUp);
     document.removeEventListener('pointerlockchange', onPointerLockChange);
+    window.removeEventListener('blur', onWindowBlur);
   }
 
   function getYaw() {

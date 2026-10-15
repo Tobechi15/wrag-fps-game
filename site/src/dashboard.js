@@ -1,8 +1,6 @@
-import * as THREE from 'three';
-import { fetchCurrentUser, fetchPlayToken, logout } from './auth-client.js';
+import { fetchCurrentUser, fetchPlayToken, login, logout, signup } from './auth-client.js';
 import { fetchDashboardSummary, depositToWallet } from './dashboard-client.js';
 import { wirePlaceholderLinks, showToast } from './toast.js';
-import { loadCharacterPreview } from './characterPreview.js';
 import { createAudioManager } from './audio.js';
 import { registerServiceWorker } from './registerServiceWorker.js';
 
@@ -36,16 +34,127 @@ const ROTATION_SPEED = 0.4; // radians/second
 const BOB_AMPLITUDE = 0.035;
 const BOB_SPEED = 1.1;
 const CAMERA_ORBIT_RANGE = 0.9; // how far the camera drifts toward the cursor
+let authenticatedDashboardStarted = false;
+let dashboardStage = null;
 
 async function initDashboard() {
   const user = await fetchCurrentUser();
-  if (!user) {
-    window.location.href = '/login.html';
-    return;
+  const dashboardUiEl = document.getElementById('dashboard-ui');
+  const overlayEl = document.getElementById('guest-auth-overlay');
+  const sheetEl = overlayEl.querySelector('.guest-auth-sheet');
+  const choiceEl = document.getElementById('guest-auth-choice');
+  const formPanelEl = document.getElementById('guest-auth-form-panel');
+  const formTitleEl = document.getElementById('guest-auth-form-title');
+  const loginFormEl = document.getElementById('dashboard-login-form');
+  const signupFormEl = document.getElementById('dashboard-signup-form');
+  const returningActionsEl = document.getElementById('guest-returning-actions');
+  const authActionsEl = document.getElementById('guest-auth-actions');
+  const guestTitleEl = document.getElementById('guest-auth-title');
+  const guestDescriptionEl = document.getElementById('guest-auth-description');
+
+  document.body.classList.add('guest-dashboard');
+  dashboardUiEl.inert = true;
+  dashboardUiEl.setAttribute('aria-hidden', 'true');
+  document.querySelector('.nav-trapezoid').hidden = true;
+  document.querySelector('.dashboard-nav .nav-actions').hidden = true;
+  document.querySelector('.dock-profile').hidden = true;
+  wirePlayModeSelector();
+  wireTabRow('mode-tabs');
+  wireLoadoutSelector(() => dashboardStage?.updatePreview());
+  wireDockToggle();
+
+  if (user) {
+    guestTitleEl.textContent = `Continue as ${user.callsign}?`;
+    guestDescriptionEl.textContent = 'Your saved operator session is still active.';
+    document.getElementById('guest-session-callsign').textContent = user.callsign;
+    returningActionsEl.hidden = false;
+    authActionsEl.hidden = true;
   }
 
+  dashboardUiEl.hidden = false;
+  overlayEl.hidden = false;
+
+  document.getElementById('continue-session-btn').addEventListener('click', () => {
+    if (user) activateAuthenticatedDashboard(user);
+  });
+  document.getElementById('switch-account-btn').addEventListener('click', () => {
+    returningActionsEl.hidden = true;
+    authActionsEl.hidden = false;
+    guestTitleEl.textContent = 'Choose an account';
+    guestDescriptionEl.textContent = 'Your current session stays active until another account signs in.';
+    sheetEl.classList.add('is-expanded');
+  });
+  document.getElementById('open-login-btn').addEventListener('click', () => showAuthForm('login'));
+  document.getElementById('open-signup-btn').addEventListener('click', () => showAuthForm('signup'));
+  document.getElementById('guest-auth-back').addEventListener('click', () => {
+    formPanelEl.hidden = true;
+    choiceEl.hidden = false;
+    overlayEl.querySelector('.guest-auth-sheet').setAttribute('aria-labelledby', 'guest-auth-title');
+    sheetEl.classList.remove('is-expanded');
+    if (user) {
+      returningActionsEl.hidden = false;
+      authActionsEl.hidden = true;
+      guestTitleEl.textContent = `Continue as ${user.callsign}?`;
+      guestDescriptionEl.textContent = 'Your saved operator session is still active.';
+    }
+  });
+
+  function showAuthForm(mode) {
+    choiceEl.hidden = true;
+    formPanelEl.hidden = false;
+    overlayEl.querySelector('.guest-auth-sheet').setAttribute('aria-labelledby', 'guest-auth-form-title');
+    loginFormEl.hidden = mode !== 'login';
+    signupFormEl.hidden = mode !== 'signup';
+    formTitleEl.textContent = mode === 'login' ? 'Log In' : 'Sign Up';
+    sheetEl.classList.add('is-expanded');
+    const form = mode === 'login' ? loginFormEl : signupFormEl;
+    form.querySelector('input')?.focus({ preventScroll: true });
+  }
+
+  function wireAuthForm(form, errorEl, submitLabel, submitAuth) {
+    const submitBtn = form.querySelector('.auth-submit');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errorEl.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = submitLabel === 'Log In' ? 'Logging In...' : 'Creating Account...';
+      const values = new FormData(form);
+      try {
+        const authenticatedUser = await submitAuth(values);
+        activateAuthenticatedDashboard(authenticatedUser);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.hidden = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitLabel;
+      }
+    });
+  }
+
+  wireAuthForm(loginFormEl, document.getElementById('dashboard-login-error'), 'Log In', (values) => (
+    login(values.get('email'), values.get('password'))
+  ));
+  wireAuthForm(signupFormEl, document.getElementById('dashboard-signup-error'), 'Create Account', (values) => (
+    signup(values.get('email'), values.get('password'), values.get('callsign'))
+  ));
+
+  const requestedAuth = new URLSearchParams(window.location.search).get('auth');
+  if (requestedAuth === 'login' || requestedAuth === 'signup') showAuthForm(requestedAuth);
+}
+
+function activateAuthenticatedDashboard(user) {
+  if (authenticatedDashboardStarted) return;
+  authenticatedDashboardStarted = true;
+  const dashboardUiEl = document.getElementById('dashboard-ui');
+  document.getElementById('guest-auth-overlay').hidden = true;
+  document.getElementById('deploy-btn').focus({ preventScroll: true });
+  dashboardUiEl.inert = false;
+  dashboardUiEl.removeAttribute('aria-hidden');
+  document.body.classList.remove('guest-dashboard');
+  document.querySelector('.nav-trapezoid').hidden = false;
+  document.querySelector('.dashboard-nav .nav-actions').hidden = false;
+  document.querySelector('.dock-profile').hidden = false;
   document.getElementById('dash-callsign').textContent = user.callsign;
-  document.getElementById('dashboard-ui').hidden = false;
   // See .env.example's ADMIN_EMAILS - only an account flagged is_admin
   // ever sees this link at all (the /admin.html page itself re-checks the
   // same flag server-side, so hiding this is a convenience, not the
@@ -58,17 +167,16 @@ async function initDashboard() {
   });
 
   wireDeployButton();
-  wirePlayModeSelector();
-  wireTabRow('mode-tabs');
   wireStatsToggle();
-  wireDockToggle();
   wirePlaceholderLinks();
   wireDepositModal();
-  // The stage needs to exist before the selector can tell it to swap
-  // models on a click - startCharacterStage() returns a handle exposing
-  // updatePreview() for exactly that.
-  const stage = startCharacterStage();
-  wireLoadoutSelector(stage.updatePreview);
+  const startStage = () => {
+    startCharacterStage().then((loadedStage) => {
+      dashboardStage = loadedStage;
+    }).catch((err) => console.error('Character preview could not start:', err));
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(startStage, { timeout: 1200 });
+  else setTimeout(startStage, 0);
   loadDashboardSummary();
 
   // Every browser requires a user gesture on THIS page before it'll let
@@ -366,7 +474,9 @@ function wireStatsToggle() {
 // what they'll look like in-match, not a placeholder. Returns
 // { updatePreview } so wireLoadoutSelector can tell it to swap models
 // whenever the player picks something different.
-function startCharacterStage() {
+async function startCharacterStage() {
+  const THREE = await import('./stageThree.js');
+  const { loadCharacterPreview } = await import('./characterPreview.js');
   const root = document.getElementById('stage-root');
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });

@@ -270,6 +270,10 @@ export function createShootEffects(scene) {
     spawnSparkBurst(muzzleWorldPosition, direction);
   }
 
+  function triggerImpact(worldPosition, direction) {
+    spawnSparkBurst(worldPosition, direction);
+  }
+
   function dispose() {
     for (const sprite of flashPool) { scene.remove(sprite); sprite.material.dispose(); }
     for (const mesh of tracerPool) { scene.remove(mesh); mesh.material.dispose(); }
@@ -280,5 +284,5 @@ export function createShootEffects(scene) {
     sparkTexture.dispose();
   }
 
-  return { triggerShot, tick, dispose };
+  return { triggerShot, triggerImpact, tick, dispose };
 }

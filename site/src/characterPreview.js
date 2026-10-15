@@ -128,6 +128,7 @@ function trackHandBone(characterRoot, group, gunGroup) {
   const worldPosition = new THREE.Vector3();
   const worldQuaternion = new THREE.Quaternion();
   const offset = new THREE.Vector3(GUN_HAND_OFFSET.x, GUN_HAND_OFFSET.y, GUN_HAND_OFFSET.z);
+  const rotatedOffset = new THREE.Vector3();
   const tiltQuaternion = new THREE.Quaternion().setFromEuler(
     new THREE.Euler(GUN_HAND_TILT.x, GUN_HAND_TILT.y, GUN_HAND_TILT.z),
   );
@@ -140,7 +141,7 @@ function trackHandBone(characterRoot, group, gunGroup) {
     // current orientation, then converted into group's local space
     // alongside the position itself - so the offset stays "a bit forward
     // of the palm" regardless of which way the hand is currently turned.
-    worldPosition.add(offset.clone().applyQuaternion(worldQuaternion));
+    worldPosition.add(rotatedOffset.copy(offset).applyQuaternion(worldQuaternion));
     group.worldToLocal(worldPosition);
     gunGroup.position.copy(worldPosition);
     gunGroup.quaternion.copy(worldQuaternion).multiply(tiltQuaternion);
